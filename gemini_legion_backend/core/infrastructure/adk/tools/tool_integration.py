@@ -123,7 +123,6 @@ class ToolIntegrationManager:
         
         return CommunicationCapability(
             minion=minion,
-            comm_system=self.comm_system,
             safeguards=self.safeguards
         )
     

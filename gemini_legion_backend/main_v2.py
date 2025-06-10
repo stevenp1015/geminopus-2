@@ -13,9 +13,11 @@ import os
 import socketio
 
 # API routers - V2 versions
-from .api.rest.endpoints import health_router
+from .api.rest.endpoints.health import router as health_router # Direct import of health
 from .api.rest.endpoints.channels_v2 import router as channels_v2_router
 from .api.rest.endpoints.minions_v2 import router as minions_v2_router
+# Add tasks_v2_router when available and needed by main_v2:
+# from .api.rest.endpoints.tasks_v2 import router as tasks_v2_router
 
 # Core V2 systems
 from .core.dependencies_v2 import (

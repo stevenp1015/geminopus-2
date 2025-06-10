@@ -8,17 +8,17 @@ from typing import Optional
 import logging
 import os
 
-from ..application.services.channel_service_v2 import ChannelServiceV2
-from ..application.services.minion_service_v2 import MinionServiceV2
-from ..infrastructure.persistence.repositories import (
+from .application.services.channel_service_v2 import ChannelServiceV2
+from .application.services.minion_service_v2 import MinionServiceV2
+from .infrastructure.persistence.repositories import (
     ChannelRepository,
     MessageRepository,
     MinionRepository,
     MemoryRepository,
     TaskRepository
 )
-from ..infrastructure.adk.events import get_event_bus
-from ...api.websocket.event_bridge import WebSocketEventBridge
+from .infrastructure.adk.events import get_event_bus
+from ..api.websocket.event_bridge import WebSocketEventBridge
 
 logger = logging.getLogger(__name__)
 

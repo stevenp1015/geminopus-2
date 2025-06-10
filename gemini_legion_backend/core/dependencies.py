@@ -43,7 +43,6 @@ class ServiceContainer:
         self.message_repository = MessageRepositoryMemory()
         
         # Infrastructure
-        self.comm_system = InterMinionCommunicationSystem()
         self.safeguards = CommunicationSafeguards()
         
         # Services
@@ -70,7 +69,6 @@ class ServiceContainer:
         # Initialize MinionService
         self.minion_service = MinionService(
             minion_repository=self.minion_repository,
-            comm_system=self.comm_system,
             safeguards=self.safeguards
         )
         
@@ -84,7 +82,6 @@ class ServiceContainer:
         self.channel_service = ChannelService(
             channel_repository=self.channel_repository,
             message_repository=self.message_repository,
-            comm_system=self.comm_system,
             minion_service=self.minion_service
         )
         

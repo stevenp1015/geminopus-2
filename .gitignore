@@ -76,6 +76,7 @@ GeminiLegion-kapa/
 llmchat/
 docs/
 adk-documentation/
+gemini_legion_backend/backup_before_purge_*/
 
 # User-specified files
 gemcoderchatlol.md

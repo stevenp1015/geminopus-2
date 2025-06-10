@@ -12,6 +12,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 import uuid
+# from ...infrastructure.adk.events import get_event_bus, EventType # This line caused circular import issues and infrastructure.infrastructure error
 
 logger = logging.getLogger(__name__)
 

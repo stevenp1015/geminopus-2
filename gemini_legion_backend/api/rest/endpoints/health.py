@@ -10,16 +10,18 @@ import psutil
 import os
 
 from ..schemas import HealthCheckResponse
-from ....core.dependencies import get_minion_service, get_channel_service
-from ....core.application.services import MinionService, ChannelService
+# Import V2 dependencies and service classes
+from ....core.dependencies_v2 import get_minion_service_v2, get_channel_service_v2
+from ....core.application.services.minion_service_v2 import MinionServiceV2
+from ....core.application.services.channel_service_v2 import ChannelServiceV2
 
-router = APIRouter(prefix="/api", tags=["health"])
+router = APIRouter(prefix="/api", tags=["health"]) # Assuming /api/health path is fine for V2 too
 
 
 @router.get("/health", response_model=HealthCheckResponse)
 async def health_check(
-    minion_service: MinionService = Depends(get_minion_service),
-    channel_service: ChannelService = Depends(get_channel_service)
+    minion_service: MinionServiceV2 = Depends(get_minion_service_v2),
+    channel_service: ChannelServiceV2 = Depends(get_channel_service_v2)
 ) -> HealthCheckResponse:
     """System health check"""
     minions = await minion_service.list_minions()
@@ -35,8 +37,8 @@ async def health_check(
 
 @router.get("/health/detailed")
 async def detailed_health_check(
-    minion_service: MinionService = Depends(get_minion_service),
-    channel_service: ChannelService = Depends(get_channel_service)
+    minion_service: MinionServiceV2 = Depends(get_minion_service_v2),
+    channel_service: ChannelServiceV2 = Depends(get_channel_service_v2)
 ):
     """Detailed system health information"""
     # Get system metrics

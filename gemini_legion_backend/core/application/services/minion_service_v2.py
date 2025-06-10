@@ -11,10 +11,10 @@ import logging
 import asyncio
 import os
 
-from ....domain import Minion, MinionPersona, EmotionalState, MoodVector
-from ....infrastructure.persistence.repositories import MinionRepository
-from ....infrastructure.adk.events import get_event_bus, EventType
-from ....infrastructure.adk.agents.minion_agent_v2 import ADKMinionAgent
+from ...domain import Minion, MinionPersona, EmotionalState, MoodVector
+from ...infrastructure.persistence.repositories import MinionRepository
+from ...infrastructure.adk.events import get_event_bus, EventType
+from ...infrastructure.adk.agents.minion_agent_v2 import ADKMinionAgent
 
 logger = logging.getLogger(__name__)
 

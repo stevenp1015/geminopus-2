@@ -16,8 +16,8 @@ from google.genai.types import Model
 import google.genai as genai
 
 from ....domain import Minion, MinionPersona, EmotionalState
-from ....infrastructure.adk.events import get_event_bus, EventType, Event
-from .communication_tools import ADKCommunicationKit
+from ..events import get_event_bus, EventType, Event
+from ..tools.communication_tools import ADKCommunicationKit
 
 logger = logging.getLogger(__name__)
 

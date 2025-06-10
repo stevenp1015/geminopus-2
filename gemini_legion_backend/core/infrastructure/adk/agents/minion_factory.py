@@ -180,8 +180,7 @@ class MinionFactory:
             persona=persona,
             emotional_engine=emotional_engine,
             memory_system=memory_system,
-            communication_capability=communication_capability,
-            tools=tools,
+                        tools=tools,
             minion=minion,
             **kwargs
         )
