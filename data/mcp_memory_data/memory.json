@@ -1,0 +1,17 @@
+{"type":"entity","name":"TestEntity","entityType":"demonstration","observations":["This is a test observation."]}
+{"type":"entity","name":"Gemini_Legion_Backend","entityType":"Service","observations":["Handles API requests and business logic.","Written in Python.","Uses FastAPI framework.","Implements a hexagonal architecture (ports and adapters)."]}
+{"type":"entity","name":"Gemini_Legion_Frontend","entityType":"Application","observations":["User interface.","Built with React/TypeScript.","Manages application state with Zustand.","Uses Tailwind CSS for styling."]}
+{"type":"entity","name":"Minion_Service","entityType":"Backend_Component","observations":["Manages minion-related operations.","Located in gemini_legion_backend/core/application/services/minion_service.py.","Provides create, read, update, and delete (CRUD) operations for minions.","Relies on a repository for data access.","Handles updates to MinionPersona, including model_name, temperature, and max_tokens.","Recreates MinionAgent if critical model parameters in persona change."]}
+{"type":"entity","name":"Minion_Card_Component","entityType":"Frontend_Component","observations":["Displays individual minion details.","Located in gemini_legion_frontend/src/components/Legion/MinionCard.tsx.","Displays minion name, status, and emotional state.","Is interactive for minion detail view."]}
+{"type":"entity","name":"Minion_Repository_Memory","entityType":"Backend_Component","observations":["In-memory persistence for minions.","Located in gemini_legion_backend/core/infrastructure/persistence/repositories/memory/minion_repository_memory.py.","Stores minion data in volatile memory.","Primarily for development and testing, not production."]}
+{"type":"entity","name":"Minion_Config_Component","entityType":"Frontend_Component","observations":["Modal component for configuring a minion.","Located in gemini_legion_frontend/src/components/Configuration/MinionConfig.tsx.","Receives minion data and an onSave callback."]}
+{"type":"entity","name":"Persona_Editor_Component","entityType":"Frontend_Component","observations":["Edits MinionPersona details within MinionConfig.","Located in gemini_legion_frontend/src/components/Configuration/PersonaEditor.tsx.","Includes UI elements for model_name, temperature, and max_tokens."]}
+{"type":"entity","name":"Minion_Detail_Component","entityType":"Frontend_Component","observations":["Displays detailed information about a specific minion.","Located in gemini_legion_frontend/src/components/Legion/MinionDetail.tsx.","Now includes a button to open Minion_Config_Component.","Handles saving updated persona via API call."]}
+{"type":"relation","from":"Gemini_Legion_Frontend","to":"Gemini_Legion_Backend","relationType":"communicates_with"}
+{"type":"relation","from":"Minion_Service","to":"Minion_Repository_Memory","relationType":"uses"}
+{"type":"relation","from":"Gemini_Legion_Backend","to":"Minion_Service","relationType":"includes"}
+{"type":"relation","from":"Gemini_Legion_Frontend","to":"Minion_Card_Component","relationType":"contains"}
+{"type":"relation","from":"Minion_Detail_Component","to":"Minion_Config_Component","relationType":"opens"}
+{"type":"relation","from":"Minion_Config_Component","to":"Persona_Editor_Component","relationType":"uses_component"}
+{"type":"relation","from":"Persona_Editor_Component","to":"Minion_Service","relationType":"configures_model_for"}
+{"type":"relation","from":"Minion_Detail_Component","to":"Minion_Service","relationType":"sends_persona_updates_to"}
