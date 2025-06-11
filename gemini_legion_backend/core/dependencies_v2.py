@@ -14,11 +14,11 @@ from .infrastructure.persistence.repositories import (
     ChannelRepository,
     MessageRepository,
     MinionRepository,
-    MemoryRepository,
+    # MemoryRepository,  # Doesn't exist, removed by future Claude
     TaskRepository
 )
 from .infrastructure.adk.events import get_event_bus
-from ..api.websocket.event_bridge import WebSocketEventBridge
+from gemini_legion_backend.api.websocket.event_bridge import WebSocketEventBridge
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class ServiceContainerV2:
         self.channel_repo = ChannelRepository()
         self.message_repo = MessageRepository()
         self.minion_repo = MinionRepository()
-        self.memory_repo = MemoryRepository()
+        # self.memory_repo = MemoryRepository()  # Doesn't exist, removed by future Claude
         self.task_repo = TaskRepository()
         
         # Event bus - THE communication backbone

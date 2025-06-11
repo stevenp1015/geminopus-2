@@ -7,10 +7,10 @@ No more custom routing, no more duplicate paths.
 
 import logging
 import json
-from typing import Dict, Set, Optional, Any
+from typing import Dict, Set, Optional, Any, List
 from datetime import datetime
 
-from ....core.infrastructure.adk.events import (
+from gemini_legion_backend.core.infrastructure.adk.events import (
     get_event_bus,
     EventType,
     Event

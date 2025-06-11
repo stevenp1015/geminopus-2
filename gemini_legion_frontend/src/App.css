@@ -1,1 +1,304 @@
-/* App-specific styles */
+/* Minimal Functional UI Styles - Dark Mode by Default Because We're Not Savages */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #0a0e1a;
+  color: #e0e0e0;
+}
+
+.App {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  background: #0d1929;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #00fff0;
+  box-shadow: 0 2px 10px rgba(0, 255, 240, 0.2);
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  color: #00fff0;
+  margin: 0;
+}
+
+.status {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Main Container */
+.main-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Panels */
+.minions-panel, .channels-panel {
+  background: #0d1929;
+  border: 1px solid #1a2332;
+  overflow-y: auto;
+}
+
+.minions-panel {
+  width: 300px;
+  padding: 1rem;
+}
+
+.channels-panel {
+  width: 200px;
+  padding: 1rem;
+}
+
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #0a0e1a;
+}
+
+/* Minions */
+.spawn-btn {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background: #00fff0;
+  color: #0a0e1a;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.spawn-btn:hover {
+  background: #00cccc;
+  box-shadow: 0 2px 10px rgba(0, 255, 240, 0.4);
+}
+
+.minion-card {
+  background: #0a0e1a;
+  border: 1px solid #00fff0;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.minion-card:hover {
+  box-shadow: 0 2px 10px rgba(0, 255, 240, 0.3);
+  transform: translateY(-2px);
+}
+
+.minion-name {
+  font-weight: bold;
+  color: #00fff0;
+  margin-bottom: 0.25rem;
+}
+
+.minion-personality {
+  font-size: 0.85rem;
+  color: #8080ff;
+  margin-bottom: 0.5rem;
+}
+
+.minion-status {
+  font-size: 0.8rem;
+  color: #00ff80;
+}
+
+/* Channels */
+.channel-item {
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.channel-item:hover {
+  background: #1a2332;
+}
+
+.channel-item.active {
+  background: #0080ff;
+  color: white;
+}
+
+.member-count {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* Chat */
+.channel-header {
+  padding: 1rem;
+  background: #0d1929;
+  border-bottom: 1px solid #1a2332;
+}
+
+.channel-header h2 {
+  margin: 0;
+  color: #00fff0;
+}
+
+.messages-container {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.message {
+  padding: 0.75rem;
+  border-radius: 8px;
+  max-width: 70%;
+  animation: messageSlide 0.3s ease-out;
+}
+
+@keyframes messageSlide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message.commander {
+  background: #0080ff;
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.message.minion {
+  background: #1a2332;
+  border: 1px solid #00fff0;
+}
+
+.message-sender {
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+  color: #00fff0;
+}
+
+.message.commander .message-sender {
+  color: white;
+}
+
+.message-content {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.message-time {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-top: 0.25rem;
+}
+
+/* Input */
+.input-container {
+  padding: 1rem;
+  background: #0d1929;
+  border-top: 1px solid #1a2332;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.message-input {
+  flex: 1;
+  padding: 0.75rem;
+  background: #0a0e1a;
+  border: 1px solid #1a2332;
+  color: white;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #00fff0;
+  box-shadow: 0 0 5px rgba(0, 255, 240, 0.3);
+}
+
+.send-btn {
+  padding: 0.75rem 1.5rem;
+  background: #00fff0;
+  color: #0a0e1a;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.send-btn:hover {
+  background: #00cccc;
+  box-shadow: 0 2px 10px rgba(0, 255, 240, 0.4);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0e1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00fff0;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00cccc;
+}
+
+/* Loading and empty states */
+.minions-list:empty::after,
+.channels-list:empty::after {
+  content: "Loading...";
+  display: block;
+  text-align: center;
+  opacity: 0.5;
+  padding: 2rem;
+}
+
+.messages-container:empty::after {
+  content: "No messages yet. Say hello!";
+  display: block;
+  text-align: center;
+  opacity: 0.5;
+  padding: 4rem;
+}
