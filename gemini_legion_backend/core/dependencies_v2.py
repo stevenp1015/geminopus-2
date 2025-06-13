@@ -10,12 +10,19 @@ import os
 
 from .application.services.channel_service_v2 import ChannelServiceV2
 from .application.services.minion_service_v2 import MinionServiceV2
-from .infrastructure.persistence.repositories import (
-    ChannelRepository,
-    MessageRepository,
-    MinionRepository,
-    # MemoryRepository,  # Doesn't exist, removed by future Claude
-    TaskRepository
+# Import abstract repository interfaces (if needed for type hinting elsewhere, but not for instantiation here)
+# from .infrastructure.persistence.repositories import (
+#     ChannelRepository,
+#     MessageRepository,
+#     MinionRepository,
+#     TaskRepository
+# )
+# Import concrete in-memory repository implementations
+from .infrastructure.persistence.repositories.memory import (
+    ChannelRepositoryMemory,
+    MessageRepositoryMemory,
+    MinionRepositoryMemory,
+    TaskRepositoryMemory
 )
 from .infrastructure.adk.events import get_event_bus
 from gemini_legion_backend.api.websocket.event_bridge import WebSocketEventBridge
@@ -32,11 +39,11 @@ class ServiceContainerV2:
     
     def __init__(self):
         # Repositories
-        self.channel_repo = ChannelRepository()
-        self.message_repo = MessageRepository()
-        self.minion_repo = MinionRepository()
+        self.channel_repo = ChannelRepositoryMemory()
+        self.message_repo = MessageRepositoryMemory()
+        self.minion_repo = MinionRepositoryMemory()
         # self.memory_repo = MemoryRepository()  # Doesn't exist, removed by future Claude
-        self.task_repo = TaskRepository()
+        self.task_repo = TaskRepositoryMemory()
         
         # Event bus - THE communication backbone
         self.event_bus = get_event_bus()

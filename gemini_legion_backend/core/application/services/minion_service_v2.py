@@ -84,9 +84,9 @@ class MinionServiceV2:
         minion_id: str,
         name: str,
         base_personality: str,
-        personality_traits: List[str],
+        # personality_traits: List[str], # Obsolete for current MinionPersona model
         quirks: List[str],
-        response_length: str = "medium",
+        # response_length: str = "medium", # Obsolete for current MinionPersona model
         catchphrases: Optional[List[str]] = None,
         expertise_areas: Optional[List[str]] = None,
         model_name: str = "gemini-2.0-flash-exp"
@@ -100,9 +100,9 @@ class MinionServiceV2:
         persona = MinionPersona(
             name=name,
             base_personality=base_personality,
-            personality_traits=personality_traits,
+            # personality_traits=personality_traits, # Obsolete for current MinionPersona model
             quirks=quirks,
-            response_length=response_length,
+            # response_length=response_length, # Obsolete for current MinionPersona model
             catchphrases=catchphrases or [],
             expertise_areas=expertise_areas or [],
             allowed_tools=["send_channel_message", "listen_to_channel"],
@@ -111,13 +111,14 @@ class MinionServiceV2:
         
         # Create emotional state
         emotional_state = EmotionalState(
+            minion_id=minion_id,  # Pass the minion_id
             mood=MoodVector(
                 valence=0.5,
                 arousal=0.5,
                 dominance=0.5
             ),
-            energy_level=0.8,
-            stress_level=0.2
+            energy_level=0.8, # Overrides default of 0.7
+            stress_level=0.2  # Overrides default of 0.3
         )
         
         # Create minion
@@ -283,9 +284,9 @@ class MinionServiceV2:
             minion_id="echo_prime",
             name="Echo",
             base_personality="Friendly and helpful assistant",
-            personality_traits=["curious", "enthusiastic", "supportive"],
-            quirks=["Uses lots of exclamation points!", "Loves learning new things"],
-            response_length="medium",
+            # personality_traits=["curious", "enthusiastic", "supportive"], # Obsolete, merged into quirks below
+            quirks=["Uses lots of exclamation points!", "Loves learning new things", "curious", "enthusiastic", "supportive"],
+            # response_length="medium", # Obsolete
             catchphrases=["Let's explore that!", "How fascinating!", "I'm here to help!"]
         )
     
@@ -316,9 +317,9 @@ class MinionServiceV2:
             "created_at": minion.created_at.isoformat(),
             "persona": {
                 "base_personality": minion.persona.base_personality,
-                "personality_traits": minion.persona.personality_traits,
+                # "personality_traits": minion.persona.personality_traits, # Obsolete
                 "quirks": minion.persona.quirks,
-                "response_length": minion.persona.response_length,
+                # "response_length": minion.persona.response_length, # Obsolete
                 "catchphrases": minion.persona.catchphrases,
                 "expertise_areas": minion.persona.expertise_areas,
                 "model_name": minion.persona.model_name
