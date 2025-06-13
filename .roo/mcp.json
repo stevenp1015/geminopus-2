@@ -6,7 +6,9 @@
         "mcp-server-git",
         "--repository",
         "/users/ttig/downloads/geminopus-branch"
-      ]
+      ],
+      "disabled": true,
+      "alwaysAllow": []
     }
   }
 }

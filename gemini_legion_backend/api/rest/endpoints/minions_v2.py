@@ -33,9 +33,9 @@ def convert_minion_to_response(minion_data: dict) -> MinionResponse:
         created_at=minion_data["created_at"],
         persona={
             "base_personality": minion_data["persona"]["base_personality"],
-            "traits": minion_data["persona"]["personality_traits"],
+            # "traits": minion_data["persona"]["personality_traits"], # Field removed from MinionPersona domain model and MinionPersonaResponse schema
             "quirks": minion_data["persona"]["quirks"],
-            "response_style": minion_data["persona"]["response_length"],
+            # "response_style": minion_data["persona"]["response_length"], # Field removed from MinionPersona domain model and MinionPersonaResponse schema
             "catchphrases": minion_data["persona"]["catchphrases"],
             "expertise": minion_data["persona"]["expertise_areas"]
         },

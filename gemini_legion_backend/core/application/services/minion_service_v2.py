@@ -11,7 +11,7 @@ import logging
 import asyncio
 import os
 
-from ...domain import Minion, MinionPersona, EmotionalState, MoodVector
+from ...domain import Minion, MinionPersona, EmotionalState, MoodVector, WorkingMemory
 from ...infrastructure.persistence.repositories import MinionRepository
 from ...infrastructure.adk.events import get_event_bus, EventType
 from ...infrastructure.adk.agents.minion_agent_v2 import ADKMinionAgent
@@ -124,11 +124,12 @@ class MinionServiceV2:
         # Create minion
         minion = Minion(
             minion_id=minion_id,
-            name=name,
+            # name=name, # Name is part of persona
             persona=persona,
             emotional_state=emotional_state,
-            created_at=datetime.now(),
-            status="active"
+            working_memory=WorkingMemory(), # Add required working_memory
+            # created_at is handled by default_factory in Minion
+            # status is handled by default_factory in Minion
         )
         
         # Save to repository
@@ -312,9 +313,9 @@ class MinionServiceV2:
         """Convert minion to dict"""
         return {
             "minion_id": minion.minion_id,
-            "name": minion.name,
-            "status": minion.status,
-            "created_at": minion.created_at.isoformat(),
+            "name": minion.persona.name, # Correctly access name from persona
+            "status": minion.status.health_status, # Access health_status from MinionStatus object
+            "created_at": minion.creation_date.isoformat(), # Correct attribute is creation_date
             "persona": {
                 "base_personality": minion.persona.base_personality,
                 # "personality_traits": minion.persona.personality_traits, # Obsolete
