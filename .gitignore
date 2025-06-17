@@ -74,7 +74,6 @@ ENV/
 adk-docs/
 GeminiLegion-kapa/
 llmchat/
-docs/
 adk-documentation/
 gemini_legion_backend/backup_before_purge_*/
 
@@ -82,6 +81,11 @@ gemini_legion_backend/backup_before_purge_*/
 gemcoderchatlol.md
 assessment_gemini_legion_remaining_work.md
 opus_previous_task.md
+adkdocs.sh
+adkdocslow.sh
+unfuckification/
+ignore-this-folder/
+
 
 # Misc
 .DS_Store
