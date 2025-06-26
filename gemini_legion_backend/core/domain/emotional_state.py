@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Any # Added Any
 from dataclasses import asdict # Added asdict
-from .base_types import EntityType
+from .enums import EntityType
 from .mood import MoodVector
 from .opinion import OpinionScore, OpinionEvent # Added OpinionEvent
     

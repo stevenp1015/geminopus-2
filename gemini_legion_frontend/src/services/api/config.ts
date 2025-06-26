@@ -11,45 +11,45 @@ export const API_ENDPOINTS = {
   
   // Minions
   minions: {
-    list: '/api/minions/',
-    get: (id: string) => `/api/minions/${id}`,
-    create: '/api/minions/',
-    updateState: (id: string) => `/api/minions/${id}/state`,
-    updatePersona: (id: string) => `/api/minions/${id}/persona`,
-    delete: (id: string) => `/api/minions/${id}`,
-    diaryEntries: (id: string) => `/api/minions/${id}/diary`,
-    memories: (id: string) => `/api/minions/${id}/memories`,
+    list: '/api/v2/minions/',
+    get: (id: string) => `/api/v2/minions/${id}`,
+    create: '/api/v2/minions/',
+    updateState: (id: string) => `/api/v2/minions/${id}/state`,
+    updatePersona: (id: string) => `/api/v2/minions/${id}/persona`,
+    delete: (id: string) => `/api/v2/minions/${id}`,
+    diaryEntries: (id: string) => `/api/v2/minions/${id}/diary`,
+    memories: (id: string) => `/api/v2/minions/${id}/memories`,
   },
   
   // Channels
   channels: {
-    list: '/api/channels/',
-    get: (id: string) => `/api/channels/${id}`,
-    create: '/api/channels/create',
-    messages: (id: string) => `/api/channels/${id}/messages`,
-    sendMessage: (id: string) => `/api/channels/${id}/send`,
-    members: (id: string) => `/api/channels/${id}/members`,
-    addMember: (id: string) => `/api/channels/${id}/members`,
-    removeMember: (id: string, minionId: string) => `/api/channels/${id}/members/${minionId}`,
+    list: '/api/v2/channels/',
+    get: (id: string) => `/api/v2/channels/${id}`,
+    create: '/api/v2/channels/',
+    messages: (id: string) => `/api/v2/channels/${id}/messages`,
+    sendMessage: (id: string) => `/api/v2/channels/${id}/messages`,
+    members: (id: string) => `/api/v2/channels/${id}/members`,
+    addMember: (id: string) => `/api/v2/channels/${id}/members`,
+    removeMember: (id: string, minionId: string) => `/api/v2/channels/${id}/members/${minionId}`,
   },
   
   // Tasks
   tasks: {
-    list: '/api/tasks/',
-    get: (id: string) => `/api/tasks/${id}`,
-    create: '/api/tasks/',
-    update: (id: string) => `/api/tasks/${id}`,
-    updateStatus: (id: string) => `/api/tasks/${id}/status`,
-    assign: (id: string) => `/api/tasks/${id}/assign`,
-    delete: (id: string) => `/api/tasks/${id}`,
-    subtasks: (id: string) => `/api/tasks/${id}/subtasks`,
+    list: '/api/v2/tasks/',
+    get: (id: string) => `/api/v2/tasks/${id}`,
+    create: '/api/v2/tasks/',
+    update: (id: string) => `/api/v2/tasks/${id}`,
+    updateStatus: (id: string) => `/api/v2/tasks/${id}/status`,
+    assign: (id: string) => `/api/v2/tasks/${id}/assign`,
+    delete: (id: string) => `/api/v2/tasks/${id}`,
+    subtasks: (id: string) => `/api/v2/tasks/${id}/subtasks`,
   },
   
   // Tools
   tools: {
-    list: '/api/tools/',
-    get: (id: string) => `/api/tools/${id}`,
-    execute: (id: string) => `/api/tools/${id}/execute`,
+    list: '/api/v2/tools/',
+    get: (id: string) => `/api/v2/tools/${id}`,
+    execute: (id: string) => `/api/v2/tools/${id}/execute`,
   },
 } as const
 

@@ -8,6 +8,10 @@ from typing import Optional
 import logging
 import os
 
+# ADK imports
+from google.adk import Runner
+from google.adk.sessions import InMemorySessionService
+
 from .application.services.channel_service_v2 import ChannelServiceV2
 from .application.services.minion_service_v2 import MinionServiceV2
 # Import abstract repository interfaces (if needed for type hinting elsewhere, but not for instantiation here)
@@ -48,6 +52,13 @@ class ServiceContainerV2:
         # Event bus - THE communication backbone
         self.event_bus = get_event_bus()
         
+        # ADK Runner setup - SHARED instance for all agents
+        # For now, use in-memory session service (can switch to DatabaseSessionService for production)
+        self.session_service = InMemorySessionService()
+        
+        # Note: Runner will be initialized with agents as they're created
+        # For now, we'll pass the session service to MinionServiceV2
+        
         # Services - Note NO circular dependencies!
         self.channel_service = ChannelServiceV2(
             channel_repository=self.channel_repo,
@@ -56,7 +67,8 @@ class ServiceContainerV2:
         
         self.minion_service = MinionServiceV2(
             minion_repository=self.minion_repo,
-            api_key=os.getenv("GEMINI_API_KEY")
+            api_key=os.getenv("GEMINI_API_KEY"),
+            session_service=self.session_service  # Pass session service for Runner usage
         )
         
         # WebSocket bridge will be set up in main.py with sio instance
