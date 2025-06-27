@@ -364,7 +364,7 @@ export const useLegionStore = create<LegionState>()(
       spawnMinion: async (config: any) => {
         try {
           // Call the /spawn endpoint with the correct payload structure
-          const response = await fetch(`${API_BASE_URL}/api/minions/spawn`, {
+          const response = await fetch(`${API_BASE_URL}/api/v2/minions/spawn`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -456,7 +456,7 @@ export const useLegionStore = create<LegionState>()(
       updateMinionEmotionalState: async (minionId: string, state: any) => {
         try {
           // Use the update-emotional-state endpoint with API_BASE_URL
-          const response = await fetch(`${API_BASE_URL}/api/minions/${minionId}/update-emotional-state`, {
+          const response = await fetch(`${API_BASE_URL}/api/v2/minions/${minionId}/update-emotional-state`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

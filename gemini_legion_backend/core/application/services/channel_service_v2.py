@@ -350,11 +350,10 @@ class ChannelServiceV2:
         offset: int = 0
     ) -> Dict[str, Any]:
         """Get messages from a channel"""
-        # Get from repository
+        # Get from repository (offset not supported yet)
         messages = await self.message_repo.get_channel_messages(
             channel_id,
-            limit=limit,
-            offset=offset
+            limit=limit
         )
         
         # Include buffered messages

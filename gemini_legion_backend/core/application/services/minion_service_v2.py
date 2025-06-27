@@ -11,6 +11,10 @@ import logging
 import asyncio
 import os
 
+# ADK imports
+from google.adk import Runner
+from google.genai.types import Content, Part
+
 from ...domain import Minion, MinionPersona, EmotionalState, MoodVector, WorkingMemory
 from ...infrastructure.persistence.repositories import MinionRepository
 from ...infrastructure.adk.events import get_event_bus, EventType
@@ -33,7 +37,8 @@ class MinionServiceV2:
     def __init__(
         self,
         minion_repository: MinionRepository,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        session_service: Optional[Any] = None  # ADK session service
     ):
         """
         Initialize the minion service.
@@ -41,20 +46,26 @@ class MinionServiceV2:
         Args:
             minion_repository: Repository for minion persistence
             api_key: Optional Gemini API key
+            session_service: ADK session service for Runner
         """
         self.minion_repo = minion_repository
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.session_service = session_service
         self.event_bus = get_event_bus()
         
         # Active minions
         self.minions: Dict[str, Minion] = {}
         self.agents: Dict[str, ADKMinionAgent] = {}
+        self.runners: Dict[str, Any] = {}  # ADK Runners for each agent
         
         logger.info("MinionServiceV2 initialized")
     
     async def start(self):
         """Start the service"""
         logger.info("Starting MinionServiceV2...")
+        
+        # Subscribe to channel messages
+        self.event_bus.subscribe(EventType.CHANNEL_MESSAGE, self._handle_channel_message)
         
         # Load existing minions
         await self._load_minions()
@@ -74,8 +85,9 @@ class MinionServiceV2:
         for agent in self.agents.values():
             await agent.stop()
         
-        # Clear agents
+        # Clear agents and runners
         self.agents.clear()
+        self.runners.clear()
         
         logger.info("MinionServiceV2 stopped")
     
@@ -177,12 +189,12 @@ class MinionServiceV2:
             EventType.MINION_DESPAWNED,
             data={
                 "minion_id": minion_id,
-                "name": minion.name
+                "name": minion.persona.name
             },
             source="minion_service"
         )
         
-        logger.info(f"Despawned minion: {minion.name} ({minion_id})")
+        logger.info(f"Despawned minion: {minion.persona.name} ({minion_id})")
         
         return {"status": "despawned", "minion_id": minion_id}
     
@@ -296,15 +308,27 @@ class MinionServiceV2:
         try:
             agent = ADKMinionAgent(
                 minion=minion,
-                model_name=minion.persona.model_name,
+                event_bus=self.event_bus,
                 api_key=self.api_key
             )
             
             await agent.start()
             
+            # Create Runner for this agent
+            if self.session_service:
+                runner = Runner(
+                    agent=agent,
+                    app_name="gemini-legion",
+                    session_service=self.session_service
+                )
+                self.runners[minion.minion_id] = runner
+                logger.info(f"Created Runner for {minion.persona.name}")
+            else:
+                logger.warning(f"No session service available for Runner creation")
+            
             self.agents[minion.minion_id] = agent
             
-            logger.info(f"Started agent for {minion.name} ({minion.minion_id})")
+            logger.info(f"Started agent for {minion.persona.name} ({minion.minion_id})")
             
         except Exception as e:
             logger.error(f"Failed to start agent for {minion.minion_id}: {e}")
@@ -340,3 +364,78 @@ class MinionServiceV2:
             "energy_level": state.energy_level,
             "stress_level": state.stress_level
         }
+    
+    async def _handle_channel_message(self, event: Any):
+        """
+        Handle incoming channel messages and make minions respond.
+        
+        This is where the magic happens - minions come alive!
+        """
+        try:
+            # Extract data from event object
+            event_data = event.data if hasattr(event, 'data') else event
+            
+            channel_id = event_data.get("channel_id")
+            sender_id = event_data.get("sender_id")
+            content = event_data.get("content")
+            
+            # Don't respond to system messages or other minions for now
+            if sender_id == "system" or sender_id in self.agents:
+                return
+            
+            logger.info(f"Channel message in {channel_id}: {content[:50]}...")
+            
+            # For now, have all active minions in channel respond
+            # In future, could add logic for who responds when
+            for minion_id, agent in self.agents.items():
+                minion = self.minions.get(minion_id)
+                if not minion:
+                    continue
+                
+                # Check if minion is in this channel (simplified check)
+                # In real implementation, would check channel membership
+                
+                # Generate response using Runner
+                try:
+                    runner = self.runners.get(minion_id)
+                    if not runner:
+                        logger.warning(f"No runner found for minion {minion_id}")
+                        continue
+                    
+                    # Use predict for simpler request-response
+                    try:
+                        response_text = await runner.predict(
+                            message=content,
+                            session_id=f"{channel_id}_{minion_id}",
+                            user_id=sender_id
+                        )
+                    except Exception as e:
+                        logger.error(f"Error with predict: {e}")
+                        # Try without session_id if session not found
+                        try:
+                            response_text = await runner.predict(
+                                message=content,
+                                user_id=sender_id
+                            )
+                        except Exception as e2:
+                            logger.error(f"Error with predict (no session): {e2}")
+                            continue
+                    
+                    if response_text:
+                        # Send minion's response back to channel
+                        await self.event_bus.emit_channel_message(
+                            channel_id=channel_id,
+                            sender_id=minion_id,
+                            content=response_text,
+                            source=f"minion:{minion_id}"
+                        )
+                        
+                        logger.info(f"Minion {minion_id} responded to message")
+                    else:
+                        logger.warning(f"Minion {minion_id} generated empty response")
+                    
+                except Exception as e:
+                    logger.error(f"Error generating response for {minion_id}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error handling channel message: {e}")

@@ -9,6 +9,15 @@
       ],
       "disabled": true,
       "alwaysAllow": []
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "disabled": true,
+      "alwaysAllow": []
     }
   }
 }

@@ -14,7 +14,8 @@ from ..schemas import (
     MinionResponse,
     MinionsListResponse,
     OperationResponse,
-    UpdateEmotionalStateRequest
+    UpdateEmotionalStateRequest,
+    MinionStatusEnum
 )
 from ....core.dependencies_v2 import get_minion_service_v2
 from ....core.application.services.minion_service_v2 import MinionServiceV2
@@ -24,28 +25,68 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v2/minions", tags=["minions-v2"])
 
 
-def convert_minion_to_response(minion_data: dict) -> MinionResponse:
+def convert_minion_to_response(minion_data: Dict[str, Any]) -> MinionResponse:
     """Convert minion data to API response format"""
-    return MinionResponse(
-        id=minion_data["minion_id"],
-        name=minion_data["name"],
-        status=minion_data["status"],
-        created_at=minion_data["created_at"],
-        persona={
-            "base_personality": minion_data["persona"]["base_personality"],
-            # "traits": minion_data["persona"]["personality_traits"], # Field removed from MinionPersona domain model and MinionPersonaResponse schema
-            "quirks": minion_data["persona"]["quirks"],
-            # "response_style": minion_data["persona"]["response_length"], # Field removed from MinionPersona domain model and MinionPersonaResponse schema
-            "catchphrases": minion_data["persona"]["catchphrases"],
-            "expertise": minion_data["persona"]["expertise_areas"]
-        },
-        emotional_state={
-            "mood": minion_data["emotional_state"]["mood"],
-            "energy": minion_data["emotional_state"]["energy_level"],
-            "stress": minion_data["emotional_state"]["stress_level"]
-        },
-        is_active=minion_data.get("is_active", False)
-    )
+    try:
+        # Get persona safely
+        persona_dict = minion_data.get("persona", {})
+        
+        # Get status safely
+        status_str = minion_data.get("status", "idle")
+        # Map service status to API enum
+        status_map = {
+            "operational": "active",
+            "healthy": "active",
+            "idle": "idle",
+            "busy": "busy",
+            "error": "error"
+        }
+        status_enum = status_map.get(status_str, "idle")
+        
+        # Build persona response
+        persona_response = {
+            "name": minion_data.get("name", persona_dict.get("name", "Unknown")),  # Get name from minion_data first
+            "base_personality": persona_dict.get("base_personality", "Unknown"),
+            "quirks": persona_dict.get("quirks", []),
+            "catchphrases": persona_dict.get("catchphrases", []),
+            "expertise_areas": persona_dict.get("expertise_areas", []),
+            "allowed_tools": persona_dict.get("allowed_tools", []),
+            "model_name": persona_dict.get("model_name", "gemini-2.0-flash-exp"),
+            "temperature": persona_dict.get("temperature", 0.7),
+            "max_tokens": persona_dict.get("max_tokens", 4096)
+        }
+        
+        # Build emotional state response
+        raw_emotional_state = minion_data.get("emotional_state", {})
+        mood_data = raw_emotional_state.get("mood", {})
+        
+        emotional_state_response = {
+            "minion_id": minion_data.get("minion_id", ""),
+            "mood": {
+                "valence": mood_data.get("valence", 0.0),
+                "arousal": mood_data.get("arousal", 0.5),
+                "dominance": mood_data.get("dominance", 0.5),
+                "curiosity": mood_data.get("curiosity", 0.5),
+                "creativity": mood_data.get("creativity", 0.5),
+                "sociability": mood_data.get("sociability", 0.5)
+            },
+            "energy_level": raw_emotional_state.get("energy_level", 0.8),
+            "stress_level": raw_emotional_state.get("stress_level", 0.2),
+            "opinion_scores": {},  # Empty for now
+            "last_updated": raw_emotional_state.get("last_updated", datetime.now().isoformat()),
+            "state_version": raw_emotional_state.get("state_version", 1)
+        }
+        
+        return MinionResponse(
+            minion_id=minion_data.get("minion_id", ""),
+            status=status_enum,
+            creation_date=minion_data.get("created_at", datetime.now().isoformat()),
+            persona=persona_response,
+            emotional_state=emotional_state_response
+        )
+    except Exception as e:
+        logger.error(f"Error converting minion data: {e}", exc_info=True)
+        raise
 
 
 @router.get("/", response_model=MinionsListResponse)
@@ -61,7 +102,7 @@ async def list_minions(
         return MinionsListResponse(
             minions=minions,
             total=len(minions),
-            active_count=len([m for m in minions if m.is_active])
+            active_count=len([m for m in minions if m.status == MinionStatusEnum.ACTIVE])
         )
     except Exception as e:
         logger.error(f"Error listing minions: {e}")
@@ -88,7 +129,7 @@ async def get_minion(
         raise HTTPException(status_code=500, detail="Error retrieving minion")
 
 
-@router.post("/", response_model=MinionResponse)
+@router.post("/spawn", response_model=MinionResponse)
 async def spawn_minion(
     request: CreateMinionRequest,
     minion_service: MinionServiceV2 = Depends(get_minion_service_v2)
@@ -96,19 +137,31 @@ async def spawn_minion(
     """Spawn a new minion"""
     try:
         import uuid
-        minion_id = request.minion_id or str(uuid.uuid4())
+        import re
+        
+        # Generate minion_id
+        minion_id = str(uuid.uuid4())
+        
+        # Create a valid agent name from the minion name
+        # Replace spaces and special chars with underscores, ensure it starts with a letter
+        agent_name = re.sub(r'[^a-zA-Z0-9_]', '_', request.name)
+        if not agent_name[0].isalpha():
+            agent_name = f"minion_{agent_name}"
+        # Make it unique by appending part of the UUID
+        agent_name = f"{agent_name}_{minion_id.split('-')[0]}"
         
         minion_data = await minion_service.spawn_minion(
-            minion_id=minion_id,
+            minion_id=agent_name,  # Use valid agent name instead of UUID
             name=request.name,
-            base_personality=request.base_personality,
-            personality_traits=request.personality_traits,
+            base_personality=request.personality,  # Map 'personality' to 'base_personality'
             quirks=request.quirks,
-            response_length=request.response_style or "medium",
             catchphrases=request.catchphrases,
-            expertise_areas=request.expertise_areas,
-            model_name=request.model or "gemini-2.0-flash-exp"
+            expertise_areas=request.expertise,  # Map 'expertise' to 'expertise_areas'
+            # tools parameter from request is not used by service
         )
+        
+        # Override the minion_id in the response to use the UUID
+        minion_data["minion_id"] = minion_id
         
         return convert_minion_to_response(minion_data)
         

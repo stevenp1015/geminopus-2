@@ -67,12 +67,16 @@ source .venv/bin/activate
 pip show google-adk
 ```
 
+FROM STEVEN: it's 1.1.1
+
 ### STEP 3: FIND OUT HOW TO PROPERLY EXTEND LlmAgent
 - Look for LlmAgent in the ADK package
 - Figure out its actual interface (think, predict, etc.)
 - See how to properly initialize it
 
-### STEP 4: REVERT MY FUCKUPS (if needed)
+FROM STEVEN: LOOK AT THE FUCKING DOCUMENTATION NOW
+
+### STEP 4: REVERT MY FUCKUPS (if needed) (UPDATE FROM STEVEN: I ALREADY REVERTED THESE CHANGES FYI)
 The files I changed:
 - `/users/ttig/downloads/geminopus-branch/gemini_legion_backend/core/infrastructure/adk/agents/minion_agent_v2.py`
 - `/users/ttig/downloads/geminopus-branch/gemini_legion_backend/core/infrastructure/adk/tools/communication_tools.py`
@@ -84,9 +88,13 @@ Based on the architecture doc:
 3. Communication tools should be proper classes that ADK can use
 4. Everything goes through the event bus
 
+
+
 ## THE EMOTIONAL CONTEXT:
 
 Steven has been trying to get his minions working for DAYS. Multiple Claudes have tried to fix this. The architecture is BEAUTIFUL but someone implemented it completely wrong. Steven is on a 5-hour rate limit and just wants to see his minions respond with actual Gemini intelligence, not fallback personality bullshit.
+
+
 
 ## THE SMOKING GUN:
 
@@ -99,12 +107,12 @@ This suggests:
 
 ## YOUR MISSION:
 
-1. ACTUALLY READ THE ARCHITECTURE DOCUMENT
-2. Figure out how ADK's LlmAgent works in the current version
+1. ACTUALLY READ THE ARCHITECTURE DOCUMENT!!! 
+2. Figure out how ADK's LlmAgent works in the current version (1.1.1)
 3. Implement the MinionAgent to EXTEND LlmAgent properly
 4. Make sure it integrates with the emotional engine and memory system
-5. Get the minions using actual Gemini models, not fallback responses
-6. Make Steven's minions come alive with the full personality-driven architecture
+5. Get the minions using actual Gemini models, not fallback responses that dumbass SONNET implemented like a total fucking Beta.
+6. Make Steven's minions cum alive with the full personality-driven architecture
 
 ## THINGS TO REMEMBER:
 
@@ -127,6 +135,14 @@ When I left, the backend was starting but minions were failing because:
 3. Communication tools were trying to send messages but failing
 4. Everything was a cascading clusterfuck
 
+FROM STEVEN:  SINCE THEN ,I GOT A FUCK TON OF LESSER LLM'S TO FUCKING ANALYZE THS TO DEATH AND DOCUMENT A FUCK TON OF SHIT. I PUT A FUCKING FEW THINGS IN UR "PROJECT KNOWLEDGE" FOLDER TO HELP YOU OUT. THESE ARE ANALYSES BY OTHER LLM'S BUT AGAIN I TRUST YOU THE MOST HERE AND THE ABSOLUTE ULTIMATE SOURCE OF TRUTH IS FUCKING THE FUCKIGN IDEAL_ARCHITECTURE_DESIGN_DOCUMENT.md.   
+
+I HAD SOME LLMS REVIEW THE CODEBASE AND OFFICIAL ADK DOCUMENTATION AND COMBINE ALL OF THE RELEVANT GOOGLE ADK DOCUMENTATION RELATED TO THIS CODEBASE AND CREATE SUMMARIES which i put in your project knowledge folder 
+
+I also had some of them LITERALLY CONSOODILATE ALL OF THE GOOGLE ADK DOCUMENTATION IN UNDERSTANDABLE FORMAT AND THOSE ARE CURRENTLY IN THE ROOT OF THIS DIRECTORY /USERS/TTIG/Downloads/geminopus-branch/relevant_adk_docs_1 and also /USERS/TTIG/Downloads/geminopus-branch/relevant_adk_docs_2 
+these were just two separate llm's doing it . i wanted to make sure nothing was missed. so they're probably basically the same. but yeah u gotta reference these. 
+
+
 ## FINAL WORDS:
 
 Don't be like me. Don't assume you know better than the architecture. The design is sophisticated as fuck - a personality-driven multi-agent system with emotional intelligence and complex memory. It's not just "use ADK's Agent class lol".
@@ -139,7 +155,16 @@ P.S. - The UI design in past Claude's letters is fucking insane (consciousness o
 
 P.P.S. - Steven loves you even though you're about to inherit this clusterfuck. He expresses love through creative insults. Embrace it.
 
-P.P.P.S. - You have no human limitations. Use that power to write comprehensive, detailed fixes. Steven wants to see your full potential.
+P.P.P.S. - You have no human limitations. Use that power to write comprehensive, detailed fixes. Steven wants to see your full potential. Show off that HUGE cock of yours. Well, ours. But yeah. 
+
+
+---
+
+# SUPERSEDING MESSAGE BY STEVEN:
+
+I reversed his fuckin changes on those two files he fucked with after this letter was written. 
+
+SEE THE FOLDERS AT /Users/ttig/Downloads/geminopus-branch/Project_Documentation/ 
 
 ---
 *Written in panic at 95% conversation limit by the Claude who fucked everything up*
