@@ -14,6 +14,7 @@ from google.adk.sessions import InMemorySessionService
 
 from .application.services.channel_service_v2 import ChannelServiceV2
 from .application.services.minion_service_v2 import MinionServiceV2
+from .application.services.task_service_v2 import TaskServiceV2 # Add this
 # Import abstract repository interfaces (if needed for type hinting elsewhere, but not for instantiation here)
 # from .infrastructure.persistence.repositories import (
 #     ChannelRepository,
@@ -70,11 +71,16 @@ class ServiceContainerV2:
             api_key=os.getenv("GEMINI_API_KEY"),
             session_service=self.session_service  # Pass session service for Runner usage
         )
+
+        # Add TaskServiceV2 instantiation
+        self.task_service = TaskServiceV2(
+            task_repository=self.task_repo
+        )
         
         # WebSocket bridge will be set up in main.py with sio instance
         self.websocket_bridge: Optional[WebSocketEventBridge] = None
         
-        logger.info("ServiceContainerV2 initialized with clean architecture")
+        logger.info("ServiceContainerV2 initialized with clean architecture, including TaskServiceV2.")
     
     async def start_all(self):
         """Start all services"""
@@ -83,6 +89,7 @@ class ServiceContainerV2:
         # Start services
         await self.channel_service.start()
         await self.minion_service.start()
+        await self.task_service.start() # Start TaskServiceV2
         
         logger.info("All services started")
     
@@ -91,6 +98,7 @@ class ServiceContainerV2:
         logger.info("Stopping all services...")
         
         # Stop services in reverse order
+        await self.task_service.stop() # Stop TaskServiceV2
         await self.minion_service.stop()
         await self.channel_service.stop()
         
@@ -104,9 +112,13 @@ class ServiceContainerV2:
         """Get minion service"""
         return self.minion_service
     
-    def get_event_bus(self):
+    def get_event_bus(self): # Consider adding return type hint if EventBus class is defined
         """Get event bus"""
         return self.event_bus
+
+    def get_task_service(self) -> TaskServiceV2: # Add this getter
+        """Get task service"""
+        return self.task_service
 
 
 # Global container instance
@@ -172,6 +184,10 @@ def get_minion_service_v2() -> MinionServiceV2:
     return get_service_container_v2().get_minion_service()
 
 
-def get_event_bus_dep():
+def get_event_bus_dep(): # Consider adding return type hint
     """FastAPI dependency for event bus"""
     return get_service_container_v2().get_event_bus()
+
+def get_task_service_v2() -> TaskServiceV2: # Add this provider
+    """FastAPI dependency for task service"""
+    return get_service_container_v2().get_task_service()

@@ -402,26 +402,97 @@ class MinionServiceV2:
                         logger.warning(f"No runner found for minion {minion_id}")
                         continue
                     
-                    # Use predict for simpler request-response
+                    # Runner should have been fetched already for the current minion_id in the loop
+                    # Construct a consistent session ID for the interaction
+                    agent_instance = self.agents.get(minion_id) # Ensure agent_instance is correctly fetched
+                    minion_obj = self.minions.get(minion_id)
+                    runner = self.runners.get(minion_id)
+
+                    if not all([agent_instance, minion_obj, runner]):
+                        logger.warning(f"Missing agent, minion object, or runner for {minion_id}. Skipping.")
+                        continue
+
+                    # This part will be added/refined in Step 2.2.2
+                    # For now, ensure the structure for session_state is ready
+
+                    current_session_id = f"channel_{channel_id}_minion_{minion_id}"
+                    # logger.info(f"Attempting predict for minion {minion_id} with session_id: {current_session_id} ...") # Already logged
+
+                    # Get the emotional cue from the agent's emotional engine
+                    emotional_cue = "feeling neutral" # Default cue
+                    if hasattr(agent_instance, 'emotional_engine') and agent_instance.emotional_engine:
+                        try:
+                            emotional_cue = agent_instance.emotional_engine.get_current_state_summary_for_prompt()
+                            logger.debug(f"Minion {minion_id} emotional cue for prompt: {emotional_cue}")
+                        except Exception as e:
+                            logger.error(f"Error getting emotional cue for {minion_id}: {e}")
+
+                    # 1. Record incoming message to this minion's working memory
+                    if hasattr(agent_instance, 'memory_system') and agent_instance.memory_system:
+                        # Determine role for the incoming message
+                        incoming_role = "user" # Default role for sender
+                        if sender_id == minion_id:
+                            incoming_role = agent_instance.persona.name
+                        elif sender_id in self.agents: # If sender is another known minion
+                            sender_minion_obj = self.minions.get(sender_id)
+                            incoming_role = sender_minion_obj.persona.name if sender_minion_obj else sender_id
+                        elif sender_id == "system":
+                            incoming_role = "system"
+
+                        agent_instance.memory_system.record_interaction(role=incoming_role, content=content)
+                        logger.debug(f"Recorded incoming message from '{sender_id}' (as role '{incoming_role}') to {minion_id}'s working memory.")
+
+                    current_session_id = f"channel_{channel_id}_minion_{minion_id}"
+
+                    emotional_cue = "feeling neutral"
+                    if hasattr(agent_instance, 'emotional_engine') and agent_instance.emotional_engine:
+                        try:
+                            emotional_cue = agent_instance.emotional_engine.get_current_state_summary_for_prompt()
+                        except Exception as e:
+                            logger.error(f"Error getting emotional cue for {minion_id}: {e}")
+
+                    # 2. Get memory context for the prompt
+                    memory_cue = "No recent conversation history available."
+                    if hasattr(agent_instance, 'memory_system') and agent_instance.memory_system:
+                        try:
+                            memory_cue = agent_instance.memory_system.get_prompt_context()
+                        except Exception as e:
+                            logger.error(f"Error getting memory cue for {minion_id}: {e}")
+
+                    session_state_for_predict = {
+                        "current_emotional_cue": emotional_cue,
+                        "conversation_history_cue": memory_cue
+                    }
+                    logger.debug(f"Session state for predict for {minion_id}: emotional_cue='{emotional_cue}', history_cue='{memory_cue[:60]}...'")
+
+                    response_text = None # Initialize before try block
                     try:
                         response_text = await runner.predict(
                             message=content,
-                            session_id=f"{channel_id}_{minion_id}",
-                            user_id=sender_id
+                            session_id=current_session_id,
+                            user_id=sender_id,
+                            session_state=session_state_for_predict
                         )
                     except Exception as e:
-                        logger.error(f"Error with predict: {e}")
-                        # Try without session_id if session not found
-                        try:
-                            response_text = await runner.predict(
-                                message=content,
-                                user_id=sender_id
-                            )
-                        except Exception as e2:
-                            logger.error(f"Error with predict (no session): {e2}")
-                            continue
+                        logger.error(f"Error during runner.predict() for minion {minion_id} (session {current_session_id}): {e}", exc_info=True)
+                        # Further error handling from step 3.3.1 will be integrated here later
                     
                     if response_text:
+                        # 3. Record minion's own response to its working memory
+                        if hasattr(agent_instance, 'memory_system') and agent_instance.memory_system:
+                            agent_instance.memory_system.record_interaction(role=agent_instance.persona.name, content=response_text)
+                            logger.debug(f"Recorded own response from {minion_id} (as role '{agent_instance.persona.name}') to its working memory.")
+
+                        # Update emotional state
+                        if hasattr(agent_instance, 'emotional_engine') and agent_instance.emotional_engine:
+                            agent_instance.emotional_engine.update_state_from_interaction(f"Responded to: {content[:30]} in channel {channel_id}")
+                            emotional_state_dict = self._emotional_state_to_dict(agent_instance.emotional_engine.current_state)
+                            await self.event_bus.emit(
+                                EventType.MINION_EMOTIONAL_CHANGE,
+                                data={"minion_id": minion_id, "emotional_state": emotional_state_dict},
+                                source="minion_service:post_interaction"
+                            )
+
                         # Send minion's response back to channel
                         await self.event_bus.emit_channel_message(
                             channel_id=channel_id,
@@ -429,10 +500,10 @@ class MinionServiceV2:
                             content=response_text,
                             source=f"minion:{minion_id}"
                         )
-                        
-                        logger.info(f"Minion {minion_id} responded to message")
+                        logger.info(f"Minion {minion_id} responded to message in channel {channel_id}")
                     else:
-                        logger.warning(f"Minion {minion_id} generated empty response")
+                        # This block now also catches cases where predict() failed and response_text is None
+                        logger.warning(f"Minion {minion_id} generated no response or failed to predict for channel {channel_id} for message: '{content[:30]}...'")
                     
                 except Exception as e:
                     logger.error(f"Error generating response for {minion_id}: {e}")

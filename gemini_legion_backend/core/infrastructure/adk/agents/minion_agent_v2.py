@@ -18,10 +18,15 @@ from google.genai import types
 
 # Domain imports
 from ....domain.minion import Minion, MinionPersona
+from ....core.domain.emotional import EmotionalEngineV2
+from ....core.domain.memory import MemorySystemV2 # Add this import
 
 # Infrastructure imports
-from ..events import get_event_bus, EventType, Event as DomainEvent
+from ..events import get_event_bus, EventType, Event as DomainEvent # Ensure EventType and DomainEvent are used or removed if not
 from ..tools.communication_tools import ADKCommunicationKit
+from google.adk.agents import LlmAgent # Ensure LlmAgent is imported
+from google.genai import types as genai_types # Use an alias
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +45,8 @@ class ADKMinionAgent(LlmAgent):
         self,
         minion: Minion,
         event_bus = None,  # Event bus for communication
-        emotional_engine = None,  # Ignored for now
-        memory_system = None,  # Ignored for now
+        # emotional_engine parameter is removed, we'll create it internally
+        memory_system = None,  # Still a placeholder for now
         api_key: Optional[str] = None,
         **kwargs
     ):
@@ -51,7 +56,6 @@ class ADKMinionAgent(LlmAgent):
         Args:
             minion: The domain minion object
             event_bus: Event bus for communication
-            emotional_engine: Emotional engine for state management
             memory_system: Memory system for context
             api_key: Optional API key
             **kwargs: Additional args passed to LlmAgent
@@ -59,21 +63,31 @@ class ADKMinionAgent(LlmAgent):
         # Extract what we need for initialization
         minion_id = minion.minion_id
         persona = minion.persona
+
+        # Initialize EmotionalEngine for this agent
+        # Pass the persona to allow EmotionalEngine to set initial mood if logic exists
+        self._emotional_engine = EmotionalEngineV2(minion_id=minion_id, initial_persona=persona)
         
-        # Build system instruction
-        system_instruction = self._build_instruction(persona, emotional_engine)
-        
-        # Initialize communication tools
-        communication_kit = ADKCommunicationKit(minion_id=minion_id, event_bus=event_bus)
-        
+        # Store other domain objects as private attributes
+        self._minion_id = minion_id
+        self._persona = persona
+        self._memory_system = MemorySystemV2(minion_id=minion_id) # Instantiate MemorySystemV2
+        self._communication_kit = ADKCommunicationKit(minion_id=minion_id, event_bus=event_bus)
+        self._event_bus = event_bus
+
+        base_instruction_text = self._build_base_instruction(persona)
+        # The dynamic parts {{current_emotional_cue}} and {{conversation_history_cue}}
+        # will be filled by Session.state via Runner
+        system_instruction = f"{base_instruction_text}\n\nYour current emotional disposition: {{current_emotional_cue}}\n\nConversation Context:\n{{conversation_history_cue}}"
+
         # Get model configuration
-        model_name = getattr(persona, 'model_name', "gemini-2.0-flash-exp")
+        model_name = getattr(persona, 'model_name', "gemini-1.5-flash-latest") # Updated default model
         
         # Temperature based on personality
         temperature = self._get_temperature_for_personality(persona.base_personality)
         
         # Configure generation settings
-        generate_config = types.GenerateContentConfig(
+        generate_config = genai_types.GenerateContentConfig( # Use aliased genai_types
             temperature=temperature,
             top_p=0.95,
             top_k=40,
@@ -84,22 +98,15 @@ class ADKMinionAgent(LlmAgent):
         super().__init__(
             name=minion_id,
             model=model_name,
-            instruction=system_instruction,
-            tools=communication_kit.get_tools(),
+            instruction=system_instruction, # Instruction now has a placeholder
+            tools=self._communication_kit.get_tools(),
             generate_content_config=generate_config,
             description=f"{persona.name} - {persona.base_personality} AI minion",
+            # Callbacks will be added in the next step
             **kwargs
         )
         
-        # Store domain objects as private attributes (Pydantic allows this!)
-        self._minion_id = minion_id
-        self._persona = persona
-        self._emotional_engine = emotional_engine
-        self._memory_system = memory_system
-        self._communication_kit = communication_kit
-        self._event_bus = event_bus
-        
-        logger.info(f"ADK Minion Agent initialized: {minion_id} ({persona.name})")
+        logger.info(f"ADK Minion Agent initialized for {minion_id} ({persona.name}) with EmotionalEngine.")
     
     @property
     def minion_id(self) -> str:
@@ -112,18 +119,19 @@ class ADKMinionAgent(LlmAgent):
         return self._persona
     
     @property
-    def emotional_engine(self):
+    def emotional_engine(self) -> EmotionalEngineV2: # Type hint updated
         """Get emotional engine."""
         return self._emotional_engine
     
     @property
-    def memory_system(self):
+    def memory_system(self) -> MemorySystemV2: # Ensure type hint is correct
         """Get memory system."""
         return self._memory_system
     
+    # Rename _build_instruction to _build_base_instruction to avoid confusion
     @staticmethod
-    def _build_instruction(persona: MinionPersona, emotional_engine=None) -> str:
-        """Build system instruction with persona and optional emotional context."""
+    def _build_base_instruction(persona: MinionPersona) -> str:
+        """Builds the static part of the system instruction with persona."""
         instruction = f"""You are {persona.name}, a unique AI minion with the following characteristics:
 
 **Core Identity:**

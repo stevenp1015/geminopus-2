@@ -93,23 +93,96 @@ export interface Message {
 }
 
 // Task types
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
-export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
+export type TaskStatus = 'pending' | 'assigned' | 'decomposed' | 'in_progress' | 'blocked' | 'completed' | 'failed' | 'cancelled';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
+
+// This ExecutionLogEntry is a common pattern, add if not present
+export interface ExecutionLogEntry {
+  timestamp: string;
+  message: string;
+  level: 'info' | 'warning' | 'error' | 'debug'; // Or more specific types
+}
+
+export interface SubTask { // Define if not already present from backend domain
+    subtask_id: string;
+    parent_task_id: string;
+    title: string;
+    description: string;
+    status: TaskStatus;
+    complexity: string;
+    suggested_minion_type?: string;
+    dependencies: string[];
+}
+
+export interface TaskDecompositionFE { // Renamed to avoid conflict if backend also has TaskDecomposition
+    strategy: string; // e.g., "sequential", "parallel"
+    subtask_count: number;
+    // subtasks?: SubTask[]; // Optional if not always sent
+}
 
 export interface Task {
-  task_id: string
-  title: string
-  description: string
-  status: TaskStatus
-  priority: TaskPriority
-  assigned_to?: string[]
-  created_by: string
-  created_at: string
-  updated_at: string
-  parent_task_id?: string
-  subtasks?: Task[]
-  metadata?: Record<string, any>
-  progress?: number
+  task_id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  progress?: number;
+  created_at: string; // ISO date string
+  created_by?: string;
+  assigned_to?: string | string[] | null; // Can be null
+  started_at?: string | null;
+  completed_at?: string | null;
+  deadline?: string | null;
+  dependencies?: string[];
+  subtask_ids?: string[];
+  parent_task_id?: string | null;
+  metadata?: Record<string, any>;
+  output?: string | null;
+  error_message?: string | null;
+  artifacts?: string[];
+  assignment_history?: any[]; // Define more strictly if needed
+  execution_log?: ExecutionLogEntry[]; // For logs/updates during task execution
+  decomposition?: TaskDecompositionFE | null; // Use frontend specific type
+}
+
+// For API POST to /api/v2/tasks/
+export interface CreateTaskRequestData { // Renamed from CreateTaskData to avoid conflict if used elsewhere
+    title: string;
+    description: string;
+    priority?: TaskPriority; // Should match TaskPriorityAPI from backend schemas.py
+    assigned_to?: string;
+    dependencies?: string[];
+    metadata?: Record<string, any>;
+}
+
+// For API PUT /api/v2/tasks/{task_id}
+export interface UpdateTaskRequestData extends Partial<CreateTaskRequestData> {
+    status?: TaskStatus;
+    progress?: number;
+    assigned_to?: string | string[]; // Or just string if API expects one
+    output?: string;
+    error_message?: string;
+    title?: string;
+}
+
+// Interface for the data within WebSocket 'task_event' payload.data
+// This should mirror the fields sent by backend's _emit_task_event
+export interface TaskEventData extends Task {
+    // It already includes all fields from Task.
+    // Add any additional fields specific to the event payload if any.
+    // For example, if 'status_message' or 'previous_status' are sent for specific events:
+    status_message?: string;
+    previous_status?: string;
+    minion_name?: string;
+    assignment_score?: number;
+    // decomposition is already in Task, so it's inherited
+}
+
+export interface WebSocketTaskPayload {
+    event_type: string; // e.g., "task.created", "task.status.changed"
+    task_id: string;    // Redundant with data.task_id but often useful
+    data: TaskEventData;
+    timestamp: string;
 }
 
 // Memory and diary types

@@ -207,24 +207,15 @@ class TaskServiceV2:
             if not assigned_to:
                 await self.auto_assign_task(task_id)
             
-            # Emit creation event - THE ONLY WAY
-            await self.event_bus.emit(
-                EventType.TASK_CREATED,
-                data={
-                    "task_id": task_id,
-                    "title": title,
-                    "priority": priority,
-                    "assigned_to": assigned_to
-                },
-                source="task_service"
-            )
+            # Emit creation event using the helper
+            await self._emit_task_event(EventType.TASK_CREATED, task)
             
             logger.info(f"Created task: {title} ({task_id})")
             
-            return self._task_to_dict(task)
+            return self._task_to_dict(task) # Ensure _task_to_dict is comprehensive
             
         except Exception as e:
-            logger.error(f"Failed to create task {task_id}: {e}")
+            logger.error(f"Failed to create task {task_id}: {e}", exc_info=True) # Added exc_info
             raise
     
     async def decompose_task(
@@ -349,16 +340,14 @@ class TaskServiceV2:
         # Save task
         await self.repository.save(task)
         
-        # Emit assignment event
-        await self.event_bus.emit(
+        # Emit assignment event using the helper
+        await self._emit_task_event(
             EventType.TASK_ASSIGNED,
-            data={
-                "task_id": task_id,
-                "minion_id": best_minion["minion_id"],
-                "minion_name": best_minion["name"],
-                "score": scored_minions[0][0]
-            },
-            source="task_service"
+            task,
+            additional_data={
+                "minion_name": best_minion["name"], # Already in minion object if it's a Minion type
+                "assignment_score": scored_minions[0][0]
+            }
         )
         
         logger.info(f"Auto-assigned task {task_id} to {best_minion['name']}")
@@ -391,21 +380,14 @@ class TaskServiceV2:
         # Save task
         await self.repository.save(task)
         
-        # Emit start event - minions will pick this up
-        await self.event_bus.emit(
-            EventType.SYSTEM_HEALTH,  # TODO: Add TASK_STARTED event type
-            data={
-                "event": "task_started",
-                "task_id": task_id,
-                "assigned_to": task.assigned_to,
-                "title": task.title,
-                "description": task.description,
-                "priority": task.priority.value
-            },
-            source="task_service"
+        # Emit TASK_STATUS_CHANGED event
+        await self._emit_task_event(
+            EventType.TASK_STATUS_CHANGED,
+            task,
+            additional_data={"previous_status": TaskStatus.ASSIGNED.value} # Or whatever the previous status was
         )
         
-        logger.info(f"Started task {task_id}")
+        logger.info(f"Started task {task_id} (status changed to {task.status.value})")
         
         return {
             "task_id": task_id,
@@ -443,41 +425,144 @@ class TaskServiceV2:
             task.completed_at = datetime.now()
         
         # Save task
-        await self.repository.save(task)
-        
-        # Emit appropriate event
-        if task.status == TaskStatus.COMPLETED:
-            await self._emit_task_event(EventType.TASK_COMPLETED, task)
+        # task.last_updated = datetime.now() # Assuming Task model has last_updated
+        if not hasattr(task, 'last_updated'):
+             task.last_updated = datetime.now()
         else:
-            # Emit progress update
-            await self.event_bus.emit(
-                EventType.SYSTEM_HEALTH,  # TODO: Add TASK_PROGRESS event
-                data={
-                    "event": "task_progress",
-                    "task_id": task_id,
-                    "progress": progress,
-                    "status": task.status.value
-                },
-                source="task_service"
-            )
+            task.last_updated = datetime.now()
+
+        # Ensure 'progress' attribute exists on the task object before updating
+        if not hasattr(task, 'progress'):
+            task.progress = 0 # Initialize if not present
+        task.progress = progress
+
+
+        current_status_before_update = task.status
+        new_status = task.status
+
+        if progress >= 100 and task.status != TaskStatus.COMPLETED:
+            new_status = TaskStatus.COMPLETED
+            task.completed_at = datetime.now()
+        # Check if task is not already in a terminal state before marking IN_PROGRESS
+        elif task.status not in [TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.COMPLETED] and progress < 100:
+            if task.status != TaskStatus.IN_PROGRESS : # Only change to IN_PROGRESS if it's not already
+                 new_status = TaskStatus.IN_PROGRESS
         
-        logger.info(f"Updated task {task_id} progress to {progress}%")
+        task.status = new_status
+        await self.repository.save(task)
+
+        if new_status == TaskStatus.COMPLETED:
+            await self._emit_task_event(EventType.TASK_COMPLETED, task)
+        elif new_status == TaskStatus.FAILED:
+            # This case is typically handled by _handle_task_failed, which calls _emit_task_event(EventType.TASK_FAILED, task)
+            # So, direct emission here might be redundant unless update_task_progress itself can determine failure.
+            # For now, we assume TASK_FAILED is emitted by a more specific handler.
+            pass
+        elif new_status != current_status_before_update:
+             await self._emit_task_event(EventType.TASK_STATUS_CHANGED, task, additional_data={"status_message": status_message, "previous_status": current_status_before_update.value if isinstance(current_status_before_update, Enum) else str(current_status_before_update)})
+        else: # Just a progress update without status change
+             await self._emit_task_event(EventType.TASK_PROGRESS_UPDATE, task, additional_data={"status_message": status_message})
+
+        logger.info(f"Updated task {task_id} progress to {progress}%, status to {task.status.value}")
         
         return self._task_to_dict(task)
     
-    async def _emit_task_event(self, event_type: EventType, task: Task):
-        """Emit task-related events"""
+    async def _emit_task_event(self, event_type: EventType, task: Task, additional_data: Optional[Dict[str, Any]] = None):
+        """Emit task-related events with comprehensive data."""
+        # Ensure all relevant Task fields are included and correctly formatted
+        event_data = {
+            "task_id": task.task_id,
+            "title": task.title,
+            "description": task.description,
+            "status": task.status.value if isinstance(task.status, Enum) else str(task.status),
+            "priority": task.priority.value if isinstance(task.priority, Enum) else str(task.priority),
+            "progress": getattr(task, 'progress', 0), # Safely get progress
+            "created_at": task.created_at.isoformat(),
+            "created_by": task.created_by,
+            "assigned_to": task.assigned_to,
+            "started_at": task.started_at.isoformat() if task.started_at else None,
+            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+            "deadline": task.deadline.isoformat() if task.deadline else None,
+            "dependencies": task.dependencies,
+            "subtask_ids": getattr(task, 'subtask_ids', []), # Safely get subtask_ids
+            "parent_task_id": task.parent_task_id,
+            "metadata": task.metadata,
+            "output": getattr(task, 'output', None), # Safely get output
+            "error_message": getattr(task, 'error', None) # Safely get error, assuming 'error' attribute can exist
+        }
+        if hasattr(task, 'decomposition') and task.decomposition:
+            event_data["decomposition"] = {
+                "strategy": task.decomposition.strategy.value if isinstance(task.decomposition.strategy, Enum) else str(task.decomposition.strategy),
+                "subtask_count": len(task.decomposition.subtasks),
+                # "subtasks": [self._subtask_to_dict(st) for st in task.decomposition.subtasks] # Potentially too much data for an event
+            }
+
+        if additional_data:
+            event_data.update(additional_data)
+
         await self.event_bus.emit(
             event_type,
-            data={
-                "task_id": task.task_id,
-                "title": task.title,
-                "status": task.status.value,
-                "assigned_to": task.assigned_to,
-                "progress": task.progress
-            },
-            source="task_service"
+            data=event_data, # This is the dict that will go into event.data
+            source=f"task_service:{event_type.value}"
         )
+        logger.info(f"Emitted {event_type.value} for task {task.task_id}")
+
+    # Ensure methods like create_task, auto_assign_task, start_task, update_task_progress,
+    # _handle_task_completed, _handle_task_failed call _emit_task_event appropriately.
+    # For example, in create_task:
+    # async def create_task(...):
+    #     ...
+    #     await self.repository.save(task)
+    #     self.active_tasks[task_id] = task
+    #     await self._emit_task_event(EventType.TASK_CREATED, task) # Use the helper
+    #     return self._task_to_dict(task)
+
+    # In auto_assign_task:
+    # async def auto_assign_task(...):
+    #     ...
+    #     await self.repository.save(task)
+    #     await self._emit_task_event(EventType.TASK_ASSIGNED, task, additional_data={"minion_name": best_minion["name"], "assignment_score": scored_minions[0][0]})
+    #     return { ... }
+
+    # In start_task:
+    # async def start_task(...):
+    #     ...
+    #     await self.repository.save(task)
+    #     await self._emit_task_event(EventType.TASK_STATUS_CHANGED, task, additional_data={"previous_status": "assigned"}) # Or "pending"
+    #     return { ... }
+
+    # In update_task_progress:
+    # async def update_task_progress(self, task_id: str, progress: int, status_message: Optional[str] = None):
+    #     task = self.active_tasks.get(task_id)
+    #     if not task: raise ValueError(f"Task {task_id} not found")
+    #
+    #     # Add progress to task if not there, and ensure last_updated is set
+    #     if not hasattr(task, 'progress'):
+    #         task.progress = 0
+    #     task.progress = progress
+    #     # task.last_updated = datetime.now() # Assuming Task model has last_updated, or add it
+    #
+    #     current_status_before_update = task.status
+    #     new_status = task.status
+    #
+    #     if progress >= 100 and task.status != TaskStatus.COMPLETED:
+    #         new_status = TaskStatus.COMPLETED
+    #         task.completed_at = datetime.now()
+    #     elif task.status not in [TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.COMPLETED]:
+    #         new_status = TaskStatus.IN_PROGRESS # Default to IN_PROGRESS if progress is < 100 and not terminal
+    #
+    #     task.status = new_status
+    #     await self.repository.save(task)
+    #
+    #     if new_status == TaskStatus.COMPLETED:
+    #         await self._emit_task_event(EventType.TASK_COMPLETED, task)
+    #     elif new_status == TaskStatus.FAILED:
+    #         await self._emit_task_event(EventType.TASK_FAILED, task)
+    #     elif new_status != current_status_before_update:
+    #          await self._emit_task_event(EventType.TASK_STATUS_CHANGED, task, additional_data={"status_message": status_message, "previous_status": current_status_before_update.value if isinstance(current_status_before_update, Enum) else str(current_status_before_update)})
+    #     else: # Just a progress update without status change
+    #          await self._emit_task_event(EventType.TASK_PROGRESS_UPDATE, task, additional_data={"status_message": status_message})
+    #     return self._task_to_dict(task)
     
     def _find_taskmaster_minion(self) -> Optional[Dict[str, Any]]:
         """Find a taskmaster minion from available minions"""

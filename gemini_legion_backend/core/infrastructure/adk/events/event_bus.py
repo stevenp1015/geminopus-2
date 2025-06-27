@@ -35,9 +35,15 @@ class EventType(Enum):
     
     # Task events
     TASK_CREATED = "task.created"
+    TASK_UPDATED = "task.updated" # For general changes like title, description, priority
+    TASK_STATUS_CHANGED = "task.status.changed" # Specifically for status transitions
     TASK_ASSIGNED = "task.assigned"
+    TASK_DECOMPOSED = "task.decomposed" # If you implement decomposition events
+    TASK_PROGRESS_UPDATE = "task.progress.update" # For progress percentage
     TASK_COMPLETED = "task.completed"
     TASK_FAILED = "task.failed"
+    TASK_CANCELLED = "task.cancelled" # If cancellation is implemented
+    TASK_DELETED = "task.deleted"
     
     # System events
     SYSTEM_HEALTH = "system.health"

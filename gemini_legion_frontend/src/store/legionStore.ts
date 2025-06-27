@@ -271,57 +271,28 @@ export const useLegionStore = create<LegionState>()(
           }
         });
         
-        // Task events (forward to task store)
-        ws.on('task_created', (data: any) => {
+        // Task events (NEW - generic handler)
+        // The backend's WebSocketEventBridge emits a generic 'task_event' event.
+        // The actual event type (task.created, task.status.changed, etc.) is in the payload.
+        ws.on('task_event', (payload: WebSocketTaskPayload) => { // Use WebSocketTaskPayload type
+          console.log('[LegionStore] WebSocket event "task_event" RECEIVED. Payload:', JSON.parse(JSON.stringify(payload)));
+
+          if (!payload || !payload.event_type || !payload.task_id || !payload.data) {
+            console.error('[LegionStore] "task_event" received with invalid structure:', payload);
+            toast.error('Received corrupted task event from server.');
+            return;
+          }
+
+          const taskEventData: TaskEventData = payload.data as TaskEventData; // Data from backend is TaskEventData
+
           import('./taskStore').then(({ useTaskStore }) => {
-            useTaskStore.getState().handleTaskUpdate(data.task)
-          })
-        })
-        
-        ws.on('task_updated', (data: any) => {
-          import('./taskStore').then(({ useTaskStore }) => {
-            useTaskStore.getState().handleTaskUpdate(data.task)
-          })
-        })
-        
-        ws.on('task_status_changed', (data: any) => {
-          import('./taskStore').then(({ useTaskStore }) => {
-            const taskStore = useTaskStore.getState()
-            const task = taskStore.tasks.find(t => t.task_id === data.task_id)
-            if (task) {
-              taskStore.handleTaskUpdate({ ...task, status: data.status })
-            }
-          })
-        })
-        
-        ws.on('task_assigned', (data: any) => {
-          import('./taskStore').then(({ useTaskStore }) => {
-            const taskStore = useTaskStore.getState()
-            const task = taskStore.tasks.find(t => t.task_id === data.task_id)
-            if (task) {
-              taskStore.handleTaskUpdate({ 
-                ...task, 
-                assigned_to: [...task.assigned_to, data.minion_id]
-              })
-            }
-          })
-          toast(`Task assigned to ${data.minion_id}`)
-        })
-        
-        ws.on('task_completed', (data: any) => {
-          import('./taskStore').then(({ useTaskStore }) => {
-            useTaskStore.getState().handleTaskUpdate(data.task)
-          })
-          toast.success(`Task "${data.task.title}" completed!`)
-        })
-        
-        ws.on('task_deleted', (data: any) => {
-          import('./taskStore').then(({ useTaskStore }) => {
-            useTaskStore.getState().handleTaskDeleted(data.task_id)
-          })
-        })
-        
-        set({ websocket: ws })
+            useTaskStore.getState().handleTaskEvent(taskEventData, payload.event_type);
+          }).catch(err => {
+            console.error('[LegionStore] Error importing or calling taskStore for task_event:', err);
+          });
+        });
+
+        set({ websocket: ws });
       },
       
       disconnectWebSocket: () => {

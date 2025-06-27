@@ -61,9 +61,40 @@ class WebSocketEventBridge:
         self.event_bus.subscribe(EventType.MINION_DESPAWNED, self._handle_minion_event)
         self.event_bus.subscribe(EventType.MINION_STATE_CHANGED, self._handle_minion_event)
         self.event_bus.subscribe(EventType.MINION_EMOTIONAL_CHANGE, self._handle_minion_event)
+        self.event_bus.subscribe(EventType.MINION_ERROR, self._handle_minion_event) # Added from 3.3.1
+
+        # Task events
+        task_event_types = [
+            EventType.TASK_CREATED, EventType.TASK_UPDATED, EventType.TASK_STATUS_CHANGED,
+            EventType.TASK_ASSIGNED, EventType.TASK_DECOMPOSED, EventType.TASK_PROGRESS_UPDATE,
+            EventType.TASK_COMPLETED, EventType.TASK_FAILED, EventType.TASK_CANCELLED,
+            EventType.TASK_DELETED
+        ]
+        for event_type in task_event_types:
+            if hasattr(event_type, 'value'): # Check if it's a valid enum member
+                self.event_bus.subscribe(event_type, self._handle_task_event)
+
+        logger.info("WebSocketEventBridge subscribed to all relevant events, including detailed task events")
+
+    async def _handle_task_event(self, event: Event): # Ensure 'Event' type hint is correct
+        """Handle generic task events and broadcast them."""
+        task_id = event.data.get("task_id")
+        if not task_id:
+            logger.warning(f"Task event received without task_id: {event.type.value if isinstance(event.type, Enum) else event.type}, data: {event.data}")
+            return
         
-        logger.info("WebSocketEventBridge subscribed to all relevant events")
-    
+        ws_event_name = "task_event" # Unified event name for frontend
+
+        payload = {
+            "event_type": event.type.value if isinstance(event.type, Enum) else str(event.type),
+            "task_id": task_id,
+            "data": event.data,
+            "timestamp": event.timestamp.isoformat()
+        }
+
+        await self.sio.emit(ws_event_name, payload)
+        logger.debug(f"Broadcast {payload['event_type']} (as {ws_event_name}) for task {task_id}. Data keys: {list(event.data.keys())}")
+
     async def _handle_channel_message(self, event: Event):
         """Handle channel message events"""
         channel_id = event.data.get("channel_id")
