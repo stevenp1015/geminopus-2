@@ -1,3 +1,4 @@
+aiofiles==24.1.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.6
 aioredis==2.0.1
@@ -28,7 +29,7 @@ filelock==3.18.0
 frozenlist==1.6.0
 fsspec==2025.5.1
 google-adk==1.1.1
-google-ai-generativelanguage==0.4.0
+google-ai-generativelanguage==0.6.15
 google-api-core==2.24.2
 google-api-python-client==2.170.0
 google-auth==2.40.2
@@ -43,7 +44,7 @@ google-cloud-storage==2.19.0
 google-cloud-trace==1.16.1
 google-crc32c==1.7.1
 google-genai==1.18.0
-google-generativeai==0.3.2
+google-generativeai==0.8.5
 google-resumable-media==2.7.2
 googleapis-common-protos==1.70.0
 graphviz==0.20.3
@@ -66,10 +67,10 @@ iniconfig==2.1.0
 joblib==1.5.1
 jsonpatch==1.33
 jsonpointer==3.0.0
-langchain==0.1.5
-langchain-community==0.0.20
-langchain-core==0.1.23
-langsmith==0.0.87
+langchain
+langchain-community
+langchain-core
+langsmith
 marshmallow==3.26.1
 mcp==1.9.2
 motor==3.3.2
@@ -84,7 +85,7 @@ opentelemetry-exporter-gcp-trace==1.9.0
 opentelemetry-resourcedetector-gcp==1.9.0a0
 opentelemetry-sdk==1.33.1
 opentelemetry-semantic-conventions==0.54b1
-packaging==25.0
+packaging
 pathspec==0.12.1
 platformdirs==4.3.8
 pluggy==1.6.0
