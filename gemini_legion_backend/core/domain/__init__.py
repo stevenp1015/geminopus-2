@@ -16,7 +16,7 @@ from .emotional_state import (
     EmotionalState,
     EmotionalStateUpdate
 )
-from .memory import MemoryType, Experience, WorkingMemory
+from .memory import WorkingMemory # Removed MemoryType and Experience
 from .minion import MinionPersona, MinionStatus, Minion
 from .communication import MessageType, Message, Channel, ChannelType, ChannelRole, ChannelMember
 from .task import (
@@ -45,8 +45,8 @@ __all__ = [
     'EmotionalStateUpdate',
     
     # Memory
-    'MemoryType',
-    'Experience',
+    # 'MemoryType', # Removed
+    # 'Experience', # Removed
     'WorkingMemory',
     
     # Minion
