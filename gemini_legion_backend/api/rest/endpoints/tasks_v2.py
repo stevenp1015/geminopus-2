@@ -1,4 +1,3 @@
-```python
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Optional, Dict, Any
 import logging
@@ -7,8 +6,8 @@ import uuid
 from ..schemas import CreateTaskRequest, TaskResponse, TasksListResponse
 from ....core.dependencies_v2 import get_task_service_v2
 from ....core.application.services.task_service_v2 import TaskServiceV2
-from ....core.domain.task import TaskStatus as DomainTaskStatus # For potential mapping
-from ....core.domain.task import TaskPriority as DomainTaskPriority # For potential mapping
+# from ....core.domain.task import TaskStatus as DomainTaskStatus # For potential mapping - removed as per guide
+# from ....core.domain.task import TaskPriority as DomainTaskPriority # For potential mapping - removed as per guide
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v2/tasks", tags=["Tasks V2"])
@@ -19,7 +18,6 @@ def _convert_service_task_to_response(task_data: Optional[Dict[str, Any]]) -> Op
         return None
 
     # Ensure all required fields for TaskResponse are present or have defaults
-    # This mapping needs to be robust, especially for enums and optional fields.
     response_data = {
         "task_id": task_data.get("task_id"),
         "title": task_data.get("title"),
@@ -35,15 +33,7 @@ def _convert_service_task_to_response(task_data: Optional[Dict[str, Any]]) -> Op
         "deadline": task_data.get("deadline"),
         "dependencies": task_data.get("dependencies", []),
         "metadata": task_data.get("metadata", {}),
-        # Ensure other fields from TaskResponse schema are handled if present in task_data
-        # "output": task_data.get("output"),
-        # "error_message": task_data.get("error_message"),
-        # "subtask_ids": task_data.get("subtask_ids", []),
-        # "parent_task_id": task_data.get("parent_task_id"),
-        # "decomposition": task_data.get("decomposition"),
     }
-    # Filter out None values for optional fields if not desired in response,
-    # though Pydantic handles this by not including them if Optional and None.
     return TaskResponse(**response_data)
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -54,9 +44,6 @@ async def create_task_endpoint(
     try:
         task_id = f"task_{uuid.uuid4().hex}"
         logger.info(f"API: Received request to create task: {request.title} with id {task_id}")
-
-        # The TaskServiceV2.create_task method expects priority as a string.
-        # The CreateTaskRequest schema uses TaskPriorityAPI enum, which provides .value
         task_data_from_service = await task_service.create_task(
             task_id=task_id,
             title=request.title,
@@ -65,14 +52,13 @@ async def create_task_endpoint(
             assigned_to=request.assigned_to,
             dependencies=request.dependencies,
             metadata=request.metadata
-            # created_by will be set by service, or could pass authenticated user ID here
         )
         if not task_data_from_service:
              raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Task service created no data.")
 
         response_obj = _convert_service_task_to_response(task_data_from_service)
         if not response_obj:
-             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to convert task data to API response.")
+             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to convert task data to response.")
         return response_obj
     except ValueError as e:
         logger.warning(f"API: Value error creating task '{request.title}': {e}")
@@ -96,16 +82,10 @@ async def list_tasks_endpoint(
             limit=limit,
             offset=offset
         )
-        # Assuming task_service.list_tasks returns a list of dicts
-        # The service's _task_to_dict should align with TaskResponse or this conversion needs to be more robust
         converted_tasks = [_convert_service_task_to_response(t) for t in tasks_data_list if t]
-
-        # TaskServiceV2.list_tasks currently returns List[Dict[str, Any]].
-        # For proper pagination, it should ideally return a structure like {'tasks': [...], 'total': X}
-        # For now, total is based on the returned list length for the current page.
         return TasksListResponse(
             tasks=converted_tasks,
-            total=len(converted_tasks)
+            total=len(converted_tasks) # Adjust if service provides total count
         )
     except Exception as e:
         logger.error(f"API: Error listing tasks: {e}", exc_info=True)
@@ -120,23 +100,12 @@ async def get_task_endpoint(
         task_data = await task_service.get_task(task_id)
         if not task_data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Task with ID '{task_id}' not found")
-
         response_obj = _convert_service_task_to_response(task_data)
         if not response_obj:
-             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to convert task data to API response.")
+             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to convert task data to response.")
         return response_obj
-    except HTTPException: # Re-raise HTTPExceptions directly
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"API: Error getting task {task_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error retrieving task")
-
-# TODO: Add PUT for updates, DELETE for task removal, and other specific operations
-# For example:
-# @router.put("/{task_id}/assign/{minion_id}", response_model=TaskResponse)
-# async def assign_task_to_minion_endpoint(task_id: str, minion_id: str, task_service: TaskServiceV2 = Depends(get_task_service_v2)): ...
-
-# @router.put("/{task_id}/status", response_model=TaskResponse)
-# async def update_task_status_endpoint(task_id: str, new_status: TaskStatusAPI, task_service: TaskServiceV2 = Depends(get_task_service_v2)): ...
-
-```

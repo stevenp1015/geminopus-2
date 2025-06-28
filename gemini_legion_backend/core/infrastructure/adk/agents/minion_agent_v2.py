@@ -18,8 +18,8 @@ from google.genai import types
 
 # Domain imports
 from ....domain.minion import Minion, MinionPersona
-from ....core.domain.emotional import EmotionalEngineV2
-from ....core.domain.memory import MemorySystemV2 # Add this import
+from ....domain.emotional import EmotionalEngineV2 # Corrected import path
+from ....domain.memory import MemorySystemV2 # Corrected import path
 
 # Infrastructure imports
 from ..events import get_event_bus, EventType, Event as DomainEvent # Ensure EventType and DomainEvent are used or removed if not

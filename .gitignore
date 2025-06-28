@@ -85,8 +85,9 @@ adkdocs.sh
 adkdocslow.sh
 unfuckification/
 ignore-this-folder/
-
+./qodana.yaml
 
 # Misc
 .DS_Store
 Thumbs.db
+/qodana.yaml

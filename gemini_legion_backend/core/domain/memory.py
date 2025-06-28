@@ -3,6 +3,12 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Any
 from datetime import datetime
 import logging
+from enum import Enum
+
+class MemoryType(str, Enum):
+    SENSORY = "sensory"
+    SHORT_TERM = "short_term"
+    LONG_TERM = "long_term"
 
 logger = logging.getLogger(__name__)
 
