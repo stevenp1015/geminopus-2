@@ -32,6 +32,7 @@ class EventType(Enum):
     MINION_DESPAWNED = "minion.despawned"
     MINION_STATE_CHANGED = "minion.state.changed"
     MINION_EMOTIONAL_CHANGE = "minion.emotional.change"
+    MINION_ERROR = "minion.error" # Added as per Phase 3 guide (Step 3.1.3 / 3.3.1)
     
     # Task events
     TASK_CREATED = "task.created"
