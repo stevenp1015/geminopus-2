@@ -1,4 +1,3 @@
-```python
 # In gemini_legion_backend/core/domain/memory.py
 from dataclasses import dataclass, field
 from typing import List, Optional, Any
@@ -80,4 +79,3 @@ class MemorySystemV2:
         context = self.working_memory.get_recent_context_for_prompt()
         logger.debug(f"MemorySystem for {self.minion_id} providing context (first 100 chars): '{context[:100]}...'")
         return context
-```
