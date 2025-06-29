@@ -143,6 +143,7 @@ export interface Task {
   assignment_history?: any[]; // Define more strictly if needed
   execution_log?: ExecutionLogEntry[]; // For logs/updates during task execution
   decomposition?: TaskDecompositionFE | null; // Use frontend specific type
+  updated_at?: string | null; // Added to match backend TaskResponse and error
 }
 
 // For API POST to /api/v2/tasks/

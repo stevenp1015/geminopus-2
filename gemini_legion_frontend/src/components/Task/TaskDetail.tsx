@@ -250,7 +250,7 @@ export default function TaskDetail({ task, minions }: TaskDetailProps) {
               </button>
             )}
             <button
-              onClick={() => handleUpdate({ status: 'in_progress' })}
+              onClick={() => updateTask(task.task_id, { status: 'in_progress' })}
               className="btn-secondary flex-1"
               disabled={task.status !== 'pending'}
             >

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Save, X, Brain, Zap, MessageSquare } from 'lucide-react' // Removed Plus, Trash2
-import type { Minion } from '../../types' // Corrected import path
+import { Save, X, Brain, Zap, MessageSquare } from 'lucide-react' // Corrected imports
+import type { Minion } from '../../types'
 import PersonaEditor from './PersonaEditor'
 import ToolSelector from './ToolSelector'
 import EmotionalStateConfig from './EmotionalStateConfig'
@@ -26,11 +26,27 @@ export default function MinionConfig({ minion, onSave, onCancel }: MinionConfigP
     // Check if there are any changes
     const hasPersonaChanges = JSON.stringify(config.persona) !== JSON.stringify(minion.persona)
     const hasEmotionalChanges = JSON.stringify(config.emotional_state) !== JSON.stringify(minion.emotional_state)
-    setHasChanges(hasPersonaChanges || hasEmotionalChanges)
+    // Check if top-level config.name (if it were used) differs from minion.persona.name
+    // const hasNameChange = config.name !== minion.persona.name; // If 'name' was part of Partial<Minion> state
+    setHasChanges(hasPersonaChanges || hasEmotionalChanges /* || hasNameChange */)
   }, [config, minion])
 
   const handleSave = async () => {
     setSaving(true)
+    // Construct the payload for onSave.
+    // It should be Partial<Minion>, but changes are primarily in persona and emotional_state.
+    // The onSave prop likely expects the relevant parts that can be updated.
+    // If onSave internally calls minionApi.updatePersona, it needs just the persona.
+    // If it's a more general update, it might take more.
+    // Given the context, it's likely persona changes that are primary.
+    // The current onSave(config) passes the whole Partial<Minion> config object.
+    // This implies the parent component (MinionDetail) handles what to do with it.
+    // MinionDetail's onSavePersona calls minionApi.updatePersona which takes persona data.
+    // This suggests MinionConfig's onSave should probably pass config.persona.
+    // However, MinionConfig also allows editing emotional_state.
+    // The onSave type is (config: Partial<Minion>) => void.
+    // So, passing `config` is type-correct. The parent `MinionDetail` must then extract
+    // the relevant parts for specific API calls (persona vs emotional state).
     try {
       await onSave(config)
     } finally {
@@ -83,27 +99,33 @@ export default function MinionConfig({ minion, onSave, onCancel }: MinionConfigP
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'persona' && (
+          {activeTab === 'persona' && config.persona && (
             <PersonaEditor
-              persona={config.persona!}
-              onChange={(persona) => setConfig({ ...config, persona })}
+              persona={config.persona}
+              onChange={(personaUpdates) => setConfig(prevConfig => ({
+                ...prevConfig,
+                persona: { ...prevConfig.persona!, ...personaUpdates }
+              }))}
             />
           )}
           
-          {activeTab === 'tools' && (
+          {activeTab === 'tools' && config.persona && (
             <ToolSelector
-              selectedTools={config.persona?.allowed_tools || []}
-              onChange={(tools) => setConfig({
-                ...config,
-                persona: { ...config.persona!, allowed_tools: tools }
-              })}
+              selectedTools={config.persona.allowed_tools || []}
+              onChange={(tools) => setConfig(prevConfig => ({
+                ...prevConfig,
+                persona: { ...prevConfig.persona!, allowed_tools: tools }
+              }))}
             />
           )}
           
-          {activeTab === 'emotional' && (
+          {activeTab === 'emotional' && config.emotional_state && (
             <EmotionalStateConfig
-              emotionalState={config.emotional_state!}
-              onChange={(emotional_state) => setConfig({ ...config, emotional_state })}
+              emotionalState={config.emotional_state}
+              onChange={(emotionalStateUpdates) => setConfig(prevConfig => ({
+                ...prevConfig,
+                emotional_state: { ...prevConfig.emotional_state!, ...emotionalStateUpdates}
+              }))}
             />
           )}
         </div>

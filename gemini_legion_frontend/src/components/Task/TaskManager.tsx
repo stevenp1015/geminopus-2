@@ -6,7 +6,7 @@ import TaskCard from './TaskCard'
 import TaskDetail from './TaskDetail'
 import CreateTaskModal from './CreateTaskModal'
 import TaskTimeline from './TaskTimeline'
-import type { Task } from '../../types/task'
+import type { Task } from '../../types' // Corrected import path
 
 type ViewMode = 'grid' | 'list' | 'timeline'
 type FilterStatus = 'all' | Task['status']
@@ -53,7 +53,7 @@ export default function TaskManager() {
     return rootTasks.map(task => (
       <div key={task.task_id} className="mb-4">
         <div className="flex items-start">
-          {task.subtasks.length > 0 && (
+          {(task.subtask_ids || []).length > 0 && (
             <button
               onClick={() => toggleTaskExpansion(task.task_id)}
               className="mr-2 mt-1 p-1 hover:bg-white/10 rounded transition-colors"
@@ -74,9 +74,17 @@ export default function TaskManager() {
             />
           </div>
         </div>
-        {expandedTasks.has(task.task_id) && task.subtasks.length > 0 && (
+        {expandedTasks.has(task.task_id) && (task.subtask_ids || []).length > 0 && (
           <div className="ml-8 mt-2 border-l-2 border-legion-primary/20 pl-4">
-            {renderTaskHierarchy(task.subtasks, task.task_id)}
+            {/* This recursive call is problematic if task.subtask_ids are just IDs.
+                It expects an array of Task objects. This needs a larger refactor
+                to fetch actual subtask objects or the `renderTaskHierarchy`
+                needs to be adapted to handle IDs (e.g. by finding tasks from the main `tasks` list).
+                For now, to fix the immediate TS error, we pass an empty array,
+                effectively not rendering sub-hierarchies correctly until this is refactored.
+                A better interim fix might be to filter the main `tasks` list for these IDs.
+            */}
+            {renderTaskHierarchy(tasks.filter(t => (task.subtask_ids || []).includes(t.task_id)), task.task_id)}
           </div>
         )}
       </div>
