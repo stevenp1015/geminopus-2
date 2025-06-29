@@ -85,15 +85,26 @@ class TaskServiceV2:
     
     async def _handle_minion_spawned(self, event):
         """Track newly spawned minions"""
-        minion_data = event.data
-        self.available_minions[minion_data["minion_id"]] = {
-            "minion_id": minion_data["minion_id"],
-            "name": minion_data.get("name", "Unknown"),
-            "status": "active",
-            "personality": minion_data.get("personality", ""),
-            "expertise_areas": minion_data.get("expertise_areas", [])
+        minion_event_data = event.data.get("minion")
+        if not minion_event_data or not isinstance(minion_event_data, dict):
+            logger.warning(f"MINION_SPAWNED event in TaskServiceV2 received malformed data: {event.data}")
+            return
+
+        minion_id = minion_event_data.get("minion_id")
+        if not minion_id:
+            logger.warning(f"MINION_SPAWNED event in TaskServiceV2 missing minion_id in minion data: {minion_event_data}")
+            return
+
+        persona_data = minion_event_data.get("persona", {})
+        self.available_minions[minion_id] = {
+            "minion_id": minion_id,
+            "name": persona_data.get("name", "Unknown"),
+            "status": minion_event_data.get("status", "active"), # Get status from the minion object
+            "base_personality": persona_data.get("base_personality", ""), # Use base_personality
+            "expertise_areas": persona_data.get("expertise_areas", [])
+            # Add other relevant fields from minion_event_data if needed for task assignment
         }
-        logger.info(f"Minion {minion_data['minion_id']} now available for tasks")
+        logger.info(f"Minion {minion_id} (name: {persona_data.get('name', 'Unknown')}) now available for tasks in TaskService.")
     
     async def _handle_minion_despawned(self, event):
         """Remove despawned minions and reassign their tasks"""

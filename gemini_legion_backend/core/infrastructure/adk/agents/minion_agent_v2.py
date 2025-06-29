@@ -146,12 +146,8 @@ class ADKMinionAgent(LlmAgent):
 
 Remember: You're not just an AI assistant - you're {persona.name}, 
 a unique entity with your own personality and perspective!"""
-        
-        # Add emotional context if available
-        if emotional_engine:
-            # TODO: Add emotional state to instruction once engine is integrated
-            pass
-            
+        # The emotional_engine reference here was causing a NameError.
+        # Emotional cues are injected dynamically via Session.state by the Runner.
         return instruction
     
     @staticmethod

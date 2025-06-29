@@ -152,33 +152,51 @@ class WebSocketEventBridge:
     
     async def _handle_minion_event(self, event: Event):
         """Handle minion events"""
-        minion_id = event.data.get("minion_id")
-        if not minion_id:
+        event_name = event.type.value.replace("minion.", "minion_")
+        minion_id_for_routing = None
+        ws_payload = {"type": event_name, "timestamp": event.timestamp.isoformat()}
+
+        if event.type == EventType.MINION_SPAWNED or event.type == EventType.MINION_STATE_CHANGED:
+            # These events have data = {"minion": {...full_minion_object...}}
+            minion_data_obj = event.data.get("minion")
+            if minion_data_obj and isinstance(minion_data_obj, dict):
+                minion_id_for_routing = minion_data_obj.get("minion_id")
+                ws_payload["minion_id"] = minion_id_for_routing
+                ws_payload["minion"] = minion_data_obj # Pass the whole minion object for spawn/state change
+            else:
+                logger.warning(f"Malformed {event.type.value} data: 'minion' object missing or not a dict. Data: {event.data}")
+                return
+        elif event.data and "minion_id" in event.data:
+            # For other events like MINION_DESPAWNED, MINION_EMOTIONAL_CHANGE, MINION_ERROR
+            # where event.data is flat, e.g., {"minion_id": "id", "name": "name"} or {"minion_id": "id", "emotional_state": {...}}
+            minion_id_for_routing = event.data.get("minion_id")
+            ws_payload["minion_id"] = minion_id_for_routing
+            # Spread other keys from event.data into the ws_payload
+            # Example: for emotional_change, this adds "emotional_state": {...} to ws_payload
+            # For despawned, this adds "name": "name"
+            for key, value in event.data.items():
+                if key not in ws_payload: # Avoid overwriting minion_id if it was already set differently
+                    ws_payload[key] = value
+        else:
+            logger.warning(f"Minion event {event.type.value} received without 'minion_id' or 'minion' object in data. Data: {event.data}")
+            return
+
+        if not minion_id_for_routing:
+            logger.warning(f"Could not determine minion_id for routing minion event {event.type.value}. Data: {event.data}")
             return
         
-        # Get event type name for WebSocket
-        event_name = event.type.value.replace("minion.", "minion_")
-        
-        # Format for WebSocket
-        ws_event = {
-            "type": event_name,
-            "minion_id": minion_id,
-            "data": event.data,
-            "timestamp": event.timestamp.isoformat()
-        }
-        
         # Get subscribers for this minion
-        subscribers = self.minion_subscriptions.get(minion_id, set())
+        subscribers = self.minion_subscriptions.get(minion_id_for_routing, set())
         
         # Also broadcast to all for spawned/despawned events
         if event.type in [EventType.MINION_SPAWNED, EventType.MINION_DESPAWNED]:
-            await self.sio.emit("minion_event", ws_event)
+            await self.sio.emit("minion_event", ws_payload)
         else:
             # Only to subscribers
             for sid in subscribers:
-                await self.sio.emit("minion_event", ws_event, to=sid)
+                await self.sio.emit("minion_event", ws_payload, to=sid)
         
-        logger.debug(f"Broadcast {event_name} for minion {minion_id}")
+        logger.debug(f"Broadcast {event_name} for minion {minion_id_for_routing}")
     
     async def handle_client_connect(self, sid: str, auth: Optional[Dict[str, Any]] = None):
         """Handle new WebSocket client connection"""
