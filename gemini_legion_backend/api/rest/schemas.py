@@ -165,7 +165,7 @@ class UpdateMinionPersonaRequest(BaseModel):
             "example": {
                 "name": "ByteCrusher v2",
                 "base_personality": "Slightly less grumpy, but still brilliant hacker.",
-                "model_name": "gemini-2.5-pro-preview-05-06",
+                "model_name": "gemini-2.5-flash", # Changed example model
                 "temperature": 0.8
             }
         }
@@ -225,7 +225,7 @@ class MinionPersonaResponse(BaseModel):
     catchphrases: List[str] = Field(default_factory=list)
     expertise_areas: List[str] = Field(default_factory=list) # Aligned with domain
     allowed_tools: List[str] = Field(default_factory=list)   # Aligned with domain
-    model_name: Optional[str] = "unknown", # Aligned with domain
+    model_name: Optional[str] = "gemini-2.5-flash", # Changed default model
     temperature: Optional[float] = Field(default=0.7, ge=0.0, le=2.0),
     max_tokens: Optional[int] = Field(default=4096, gt=0)
 

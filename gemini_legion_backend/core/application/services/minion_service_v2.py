@@ -176,7 +176,7 @@ class MinionServiceV2:
         # response_length: str = "medium", # Obsolete for current MinionPersona model
         catchphrases: Optional[List[str]] = None,
         expertise_areas: Optional[List[str]] = None,
-        model_name: str = "gemini-2.0-flash-exp"
+        model_name: str = "gemini-2.5-flash" # Changed default model
     ) -> Dict[str, Any]:
         """Spawn a new minion"""
         # Check if exists
@@ -231,12 +231,7 @@ class MinionServiceV2:
         # Emit spawn event - agents will hear this
         await self.event_bus.emit(
             EventType.MINION_SPAWNED,
-            data={
-                "minion_id": minion_id,
-                "name": name,
-                "personality": base_personality,
-                "status": "active"
-            },
+            data={"minion": self._minion_to_dict(minion)}, # Use the full minion dict
             source="minion_service"
         )
         
@@ -409,23 +404,39 @@ class MinionServiceV2:
             logger.error(f"Failed to start agent for {minion.minion_id}: {e}")
     
     def _minion_to_dict(self, minion: Minion) -> Dict[str, Any]:
-        """Convert minion to dict"""
+        """Convert minion to dict to match frontend MinionType"""
+
+        # Status mapping
+        domain_status = minion.status.health_status.lower() # e.g. "operational", "error"
+        frontend_status = "idle" # Default
+        if domain_status == "operational":
+            frontend_status = "active"
+        elif domain_status == "error":
+            frontend_status = "error"
+        # Add other mappings if MinionStatus.health_status becomes more varied (e.g., busy)
+
+        persona_dict = {
+            "minion_id": minion.minion_id, # Frontend MinionPersona expects minion_id
+            "name": minion.persona.name,
+            "base_personality": minion.persona.base_personality,
+            "quirks": minion.persona.quirks,
+            "catchphrases": minion.persona.catchphrases,
+            "expertise_areas": minion.persona.expertise_areas,
+            "allowed_tools": minion.persona.allowed_tools,
+            "model_name": minion.persona.model_name,
+            "temperature": minion.persona.temperature,
+            "max_tokens": minion.persona.max_tokens
+        }
+
         return {
             "minion_id": minion.minion_id,
-            "name": minion.persona.name, # Correctly access name from persona
-            "status": minion.status.health_status, # Access health_status from MinionStatus object
-            "created_at": minion.creation_date.isoformat(), # Correct attribute is creation_date
-            "persona": {
-                "base_personality": minion.persona.base_personality,
-                # "personality_traits": minion.persona.personality_traits, # Obsolete
-                "quirks": minion.persona.quirks,
-                # "response_length": minion.persona.response_length, # Obsolete
-                "catchphrases": minion.persona.catchphrases,
-                "expertise_areas": minion.persona.expertise_areas,
-                "model_name": minion.persona.model_name
-            },
+            # "name": minion.persona.name, # Name is in persona dict
+            "status": frontend_status,
+            "creation_date": minion.creation_date.isoformat(), # Renamed from created_at
+            "persona": persona_dict,
             "emotional_state": self._emotional_state_to_dict(minion.emotional_state),
-            "is_active": minion.minion_id in self.agents
+            # "is_active": minion.minion_id in self.agents # is_active is implicit in status
+            # current_task and memory_stats are optional in frontend, can be added if available
         }
     
     def _emotional_state_to_dict(self, state: EmotionalState) -> Dict[str, Any]:

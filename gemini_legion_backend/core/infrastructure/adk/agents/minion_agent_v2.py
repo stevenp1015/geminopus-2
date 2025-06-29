@@ -81,7 +81,7 @@ class ADKMinionAgent(LlmAgent):
         system_instruction = f"{base_instruction_text}\n\nYour current emotional disposition: {{current_emotional_cue}}\n\nConversation Context:\n{{conversation_history_cue}}"
 
         # Get model configuration
-        model_name = getattr(persona, 'model_name', "gemini-1.5-flash-latest") # Updated default model
+        model_name = getattr(persona, 'model_name', "gemini-2.5-flash") # Changed default model
         
         # Temperature based on personality
         temperature = self._get_temperature_for_personality(persona.base_personality)

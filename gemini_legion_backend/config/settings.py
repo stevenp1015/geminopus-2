@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     diary_storage_path: Path = Field(default=None)
     
     # Minion defaults
-    default_model: str = Field(default="gemini-2.5-pro-preview-05-06", env="DEFAULT_MODEL")
+    default_model: str = Field(default="gemini-2.5-flash", env="DEFAULT_MODEL") # Changed default model
     default_temperature: float = Field(default=0.7, env="DEFAULT_TEMPERATURE")
     default_max_tokens: int = Field(default=4096, env="DEFAULT_MAX_TOKENS")
     

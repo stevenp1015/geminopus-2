@@ -52,7 +52,7 @@ def convert_minion_to_response(minion_data: Dict[str, Any]) -> MinionResponse:
             "catchphrases": persona_dict.get("catchphrases", []),
             "expertise_areas": persona_dict.get("expertise_areas", []),
             "allowed_tools": persona_dict.get("allowed_tools", []),
-            "model_name": persona_dict.get("model_name", "gemini-2.0-flash-exp"),
+            "model_name": persona_dict.get("model_name", "gemini-2.5-flash"), # Changed default model
             "temperature": persona_dict.get("temperature", 0.7),
             "max_tokens": persona_dict.get("max_tokens", 4096)
         }

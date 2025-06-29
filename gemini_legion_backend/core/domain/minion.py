@@ -20,7 +20,7 @@ class MinionPersona:
     allowed_tools: List[str] = field(default_factory=list)
     
     # Model configuration
-    model_name: str = "gemini-2.5-pro-preview-05-06"
+    model_name: str = "gemini-2.5-flash" # Changed default model
     temperature: float = 0.7
     max_tokens: int = 4096
 
