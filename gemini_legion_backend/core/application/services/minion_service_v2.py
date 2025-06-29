@@ -60,6 +60,81 @@ class MinionServiceV2:
         
         logger.info("MinionServiceV2 initialized")
     
+    async def update_minion_persona(self, minion_id: str, persona_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update a minion's persona."""
+        minion = self.minions.get(minion_id)
+        if not minion:
+            minion = await self.minion_repo.get_by_id(minion_id) # Try loading from repo
+            if not minion:
+                raise ValueError(f"Minion {minion_id} not found")
+            self.minions[minion_id] = minion # Cache if found in repo
+
+        agent = self.agents.get(minion_id)
+        runner = self.runners.get(minion_id)
+
+        # Update MinionPersona object
+        updated_fields = False
+        for key, value in persona_data.items():
+            if hasattr(minion.persona, key) and value is not None:
+                setattr(minion.persona, key, value)
+                updated_fields = True
+                logger.info(f"Minion {minion_id} persona field '{key}' updated to '{value}'.")
+
+        if not updated_fields:
+            logger.info(f"No persona fields provided or changed for minion {minion_id}.")
+            return self._minion_to_dict(minion) # Return current state if nothing changed
+
+        # If critical fields that affect the agent's instruction or model config change,
+        # the agent might need to be re-initialized or its runner reconfigured.
+        critical_persona_fields_changed = any(
+            key in persona_data for key in ["name", "base_personality", "model_name", "temperature", "max_tokens"]
+        )
+
+        if agent and critical_persona_fields_changed:
+            logger.info(f"Critical persona fields changed for minion {minion_id}. Re-evaluating agent/runner.")
+            # This is a simplified re-evaluation. A full re-init might be:
+            # await agent.stop()
+            # new_agent = ADKMinionAgent(minion=minion, event_bus=self.event_bus, api_key=self.api_key)
+            # await new_agent.start()
+            # self.agents[minion_id] = new_agent
+            # if self.session_service:
+            #     new_runner = Runner(agent=new_agent, app_name="gemini-legion", session_service=self.session_service)
+            #     self.runners[minion_id] = new_runner
+            # logger.info(f"Re-initialized agent and runner for minion {minion_id} due to persona changes.")
+
+            # For now, let's assume the ADKMinionAgent can dynamically build its instruction
+            # or that its existing config (like model_name) is mostly static after init.
+            # A more robust solution would involve updating agent.instruction and agent.generate_content_config
+            # and possibly re-creating the runner if model_name changes.
+            # The current ADKMinionAgent re-builds instruction text at init based on persona.
+            # If the agent or runner needs full re-creation, that's a more involved step.
+            # We will rely on the fact that the persona object itself is updated, and if the agent
+            # references this persona object for its operations (e.g. _build_base_instruction called dynamically),
+            # it might pick up changes. However, instruction is set at __init__.
+
+            # A pragmatic approach for now:
+            # If name changed, it primarily affects logging/display.
+            # If base_personality, model_name, temperature, max_tokens change, ideally agent is reconfigured.
+            # For this iteration, we'll log a warning if a full re-init would be needed.
+            if any(key in persona_data for key in ["model_name"]):
+                 logger.warning(f"Minion {minion_id} model_name changed. Full agent/runner re-initialization might be required for this to take effect in ADK predict calls.")
+
+            # Update agent's internal persona reference if it's a copy, though it should be a direct reference.
+            if hasattr(agent, '_persona'):
+                agent._persona = minion.persona
+
+
+        await self.minion_repo.save(minion)
+
+        updated_minion_data = self._minion_to_dict(minion)
+        await self.event_bus.emit(
+            EventType.MINION_STATE_CHANGED, # Using a general state change event for now
+            data=updated_minion_data,
+            source="minion_service:persona_update"
+        )
+        logger.info(f"Minion {minion_id} persona updated and event emitted.")
+        return updated_minion_data
+
     async def start(self):
         """Start the service"""
         logger.info("Starting MinionServiceV2...")

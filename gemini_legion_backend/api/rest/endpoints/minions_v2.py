@@ -15,6 +15,7 @@ from ..schemas import (
     MinionsListResponse,
     OperationResponse,
     UpdateEmotionalStateRequest,
+    UpdateMinionPersonaRequest, # Added schema import
     MinionStatusEnum
 )
 from ....core.dependencies_v2 import get_minion_service_v2
@@ -224,6 +225,38 @@ async def update_emotional_state(
     except Exception as e:
         logger.error(f"Error updating emotional state: {e}")
         raise HTTPException(status_code=500, detail="Error updating emotional state")
+
+
+@router.put("/{minion_id}/persona", response_model=MinionResponse)
+async def update_minion_persona_endpoint(
+    minion_id: str,
+    request: UpdateMinionPersonaRequest,
+    minion_service: MinionServiceV2 = Depends(get_minion_service_v2)
+) -> MinionResponse:
+    """Update a minion's persona details."""
+    try:
+        # Pass only the fields that are set in the request using model_dump(exclude_unset=True)
+        persona_data_to_update = request.model_dump(exclude_unset=True)
+        if not persona_data_to_update:
+            raise HTTPException(status_code=400, detail="No persona data provided for update.")
+
+        updated_minion_data = await minion_service.update_minion_persona(
+            minion_id=minion_id,
+            persona_data=persona_data_to_update
+        )
+        if not updated_minion_data:
+            # This case should ideally be caught by ValueError in service if minion not found
+            raise HTTPException(status_code=404, detail=f"Minion {minion_id} not found or update failed.")
+
+        return convert_minion_to_response(updated_minion_data)
+    except ValueError as e: # Handles minion not found from service
+        logger.warning(f"Failed to update persona for minion {minion_id}: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException: # Re-raise existing HTTPExceptions (like the 400 above)
+        raise
+    except Exception as e:
+        logger.error(f"Error updating persona for minion {minion_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error updating persona for minion {minion_id}")
 
 
 @router.get("/test", response_model=Dict[str, Any])
