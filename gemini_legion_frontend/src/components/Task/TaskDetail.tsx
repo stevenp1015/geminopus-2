@@ -14,19 +14,46 @@ interface TaskDetailProps {
 export default function TaskDetail({ task, minions }: TaskDetailProps) {
   const { updateTask, deleteTask, decomposeTask } = useTaskStore()
   const [isEditing, setIsEditing] = useState(false)
-  const [editedTask, setEditedTask] = useState(task)
-  const handleUpdate = async (updates: UpdateTaskRequestData) => { // Changed TaskUpdate to UpdateTaskRequestData
+  const [editedTask, setEditedTask] = useState<Task>(task) // Ensure editedTask is of type Task
+
+  // Modified handleUpdate to construct payload internally
+  const handleUpdate = async () => {
     try {
-      await updateTask(task.task_id, updates)
-      setIsEditing(false)
+      const payload: UpdateTaskRequestData = {
+        title: editedTask.title,
+        description: editedTask.description,
+        priority: editedTask.priority,
+        status: editedTask.status,
+        progress: editedTask.progress,
+        assigned_to: Array.isArray(editedTask.assigned_to) && editedTask.assigned_to.length > 0
+                       ? editedTask.assigned_to[0]
+                       : typeof editedTask.assigned_to === 'string'
+                       ? editedTask.assigned_to
+                       : null,
+        // Include other fields from UpdateTaskRequestData if they are editable in this component
+        // For example, if deadline, metadata, output, error_message are editable:
+        // deadline: editedTask.deadline,
+        // metadata: editedTask.metadata,
+        // output: editedTask.output,
+        // error_message: editedTask.error_message,
+        // dependencies: editedTask.dependencies, // if editable
+      };
+      await updateTask(task.task_id, payload);
+      setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update task:', error)
+      console.error('Failed to update task:', error);
     }
-  }
+  };
 
   const handleDecompose = async () => {
     try {
-      await decomposeTask(task.task_id)
+      if (decomposeTask) {
+        await decomposeTask(task.task_id)
+      } else {
+        console.warn("decomposeTask function is not available on useTaskStore");
+        // Optionally, show a toast to the user
+        // toast.error("Task decomposition feature is currently unavailable.");
+      }
     } catch (error) {
       console.error('Failed to decompose task:', error)
     }
@@ -58,9 +85,15 @@ export default function TaskDetail({ task, minions }: TaskDetailProps) {
     }
   }
 
-  const assignedMinions = task.assigned_to.map(id => 
+  const assignedToIds = Array.isArray(task.assigned_to)
+    ? task.assigned_to
+    : typeof task.assigned_to === 'string'
+    ? [task.assigned_to]
+    : [];
+
+  const assignedMinions = assignedToIds.map((id: string) =>
     minions.find(m => m.minion_id === id)
-  ).filter(Boolean) as Minion[]
+  ).filter(Boolean) as Minion[];
 
   return (
     <div className="bg-black/30 backdrop-blur-md rounded-lg border border-legion-primary/20 p-6 space-y-6">
@@ -143,10 +176,10 @@ export default function TaskDetail({ task, minions }: TaskDetailProps) {
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-legion-primary to-legion-accent
                               flex items-center justify-center text-sm font-bold">
-                  {minion.name[0]}
+                  {minion.persona.name[0]}
                 </div>
                 <div>
-                  <p className="text-white font-medium">{minion.name}</p>
+                  <p className="text-white font-medium">{minion.persona.name}</p>
                   <p className="text-xs text-gray-400">{minion.persona.base_personality}</p>
                 </div>
               </div>
@@ -158,24 +191,26 @@ export default function TaskDetail({ task, minions }: TaskDetailProps) {
       </div>
 
       {/* Subtasks */}
-      {task.subtasks.length > 0 && (
+      {(task.subtask_ids || []).length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-gray-400 mb-2">
-            Subtasks ({task.subtasks.length})
+            Subtasks ({(task.subtask_ids || []).length})
           </h3>
           <div className="space-y-2">
-            {task.subtasks.map(subtask => (
+            {/* If you want to display details of subtasks, you'd fetch them based on task.subtask_ids */}
+            {/* For now, just listing IDs or a placeholder */}
+            {(task.subtask_ids || []).map((subtask_id: string) => ( // Added type for subtask_id
               <div
-                key={subtask.task_id}
+                key={subtask_id} // Use subtask_id as key
                 className="p-3 bg-white/5 rounded-lg border border-white/10"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-white">{subtask.title}</p>
-                  <span className={`text-xs ${
-                    subtask.status === 'completed' ? 'text-green-400' : 'text-gray-400'
-                  }`}>
-                    {subtask.progress}%
+                  <p className="text-white">Subtask ID: {subtask_id}</p>
+                  {/* Placeholder for actual subtask status/progress if fetched
+                  <span className={`text-xs text-gray-400`}>
+                    Details unavailable
                   </span>
+                  */}
                 </div>
               </div>
             ))}
@@ -188,7 +223,7 @@ export default function TaskDetail({ task, minions }: TaskDetailProps) {
         {isEditing ? (
           <>
             <button
-              onClick={() => handleUpdate(editedTask)}
+              onClick={handleUpdate} // Call without arguments
               className="btn-primary flex-1"
             >
               Save Changes
@@ -205,7 +240,7 @@ export default function TaskDetail({ task, minions }: TaskDetailProps) {
           </>
         ) : (
           <>
-            {task.status === 'pending' && task.subtasks.length === 0 && (
+            {task.status === 'pending' && (task.subtask_ids || []).length === 0 && (
               <button
                 onClick={handleDecompose}
                 className="btn-primary flex-1 flex items-center justify-center gap-2"

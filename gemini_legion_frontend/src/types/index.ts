@@ -150,7 +150,7 @@ export interface CreateTaskRequestData { // Renamed from CreateTaskData to avoid
     title: string;
     description: string;
     priority?: TaskPriority; // Should match TaskPriorityAPI from backend schemas.py
-    assigned_to?: string;
+    assigned_to?: string | null; // Allow null
     dependencies?: string[];
     metadata?: Record<string, any>;
 }

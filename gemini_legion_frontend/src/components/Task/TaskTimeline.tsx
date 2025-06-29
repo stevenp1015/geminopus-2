@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Calendar, Clock, Users } from 'lucide-react'
-import type { Task } from '../../types/task'
+import type { Task } from '../../types' // Corrected import path
 
 interface TaskTimelineProps {
   tasks: Task[]
@@ -113,10 +113,10 @@ export default function TaskTimeline({ tasks, onTaskClick }: TaskTimelineProps) 
                         </div>
                         
                         {/* Assigned count */}
-                        {task.assigned_to.length > 0 && (
+                        {(Array.isArray(task.assigned_to) ? task.assigned_to.length : (task.assigned_to ? 1 : 0)) > 0 && (
                           <div className="flex items-center gap-1 text-xs text-gray-400">
                             <Users className="w-3 h-3" />
-                            <span>{task.assigned_to.length}</span>
+                            <span>{(Array.isArray(task.assigned_to) ? task.assigned_to.length : (task.assigned_to ? 1 : 0))}</span>
                           </div>
                         )}
                       </div>

@@ -142,7 +142,7 @@ export const useTaskStore = create<TaskState>()(
             if (state.selectedTask?.task_id === eventData.task_id) {
               newSelectedTask = null;
             }
-            toast.info(`Task '${eventData.title || eventData.task_id}' was deleted.`);
+            toast(`Task '${eventData.title || eventData.task_id}' was deleted.`); // Changed from toast.info
           } else {
             // Covers created, updated, status_changed, assigned, completed, failed, etc.
             // We treat all as updates or additions. The eventData should be the full new state of the task.
@@ -159,7 +159,7 @@ export const useTaskStore = create<TaskState>()(
             }
             // Avoid too many toasts if not desired for every update type
             if (eventType === 'task.created' || eventType === 'task.completed' || eventType === 'task.failed' || eventType === 'task.assigned') {
-                 toast.info(`Task '${updatedTaskData.title}' ${eventType.split('.')[1]}.`);
+                 toast(`Task '${updatedTaskData.title}' ${eventType.split('.')[1]}.`); // Changed from toast.info
             } else if (eventType === 'task.status.changed' || eventType === 'task.progress.update' ) {
                 // Potentially less verbose toast or just log for these frequent updates
                 console.log(`Task '${updatedTaskData.title}' updated: ${eventType}`);
@@ -179,7 +179,7 @@ export const useTaskStore = create<TaskState>()(
 
       decomposeTask: async (taskId: string) => {
         console.log(`[TaskStore] decomposeTask called for task ID: ${taskId}`);
-        toast.info(`Task decomposition requested for ${taskId}. (Not yet fully implemented)`);
+        toast(`Task decomposition requested for ${taskId}. (Not yet fully implemented)`); // Changed from toast.info
         // try {
         //   // TODO: Implement API call if backend supports task decomposition
         //   // const updatedTask = await taskApi.decompose(taskId);

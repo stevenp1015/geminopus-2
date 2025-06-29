@@ -1,4 +1,4 @@
-import { Clock, Users, AlertCircle, CheckCircle, XCircle, Loader } from 'lucide-react'
+import { Clock, Users, CheckCircle, XCircle, Loader } from 'lucide-react' // Removed AlertCircle
 import type { Task, Minion } from '../../types' // Corrected import paths
 
 interface TaskCardProps {
@@ -48,9 +48,15 @@ export default function TaskCard({ task, onClick, minions, expanded }: TaskCardP
     }
   }
 
-  const assignedMinions = task.assigned_to.map(id => 
+  const assignedToIds = Array.isArray(task.assigned_to)
+    ? task.assigned_to
+    : typeof task.assigned_to === 'string'
+    ? [task.assigned_to]
+    : [];
+
+  const assignedMinions = assignedToIds.map((id: string) =>
     minions.find(m => m.minion_id === id)
-  ).filter(Boolean) as Minion[]
+  ).filter(Boolean) as Minion[];
 
   return (
     <div
@@ -101,9 +107,9 @@ export default function TaskCard({ task, onClick, minions, expanded }: TaskCardP
                       key={minion.minion_id}
                       className="w-6 h-6 rounded-full bg-gradient-to-br from-legion-primary to-legion-accent
                                border border-black/50 flex items-center justify-center text-[10px] font-bold"
-                      title={minion.name}
+                      title={minion.persona.name}
                     >
-                      {minion.name[0]}
+                      {minion.persona.name[0]}
                     </div>
                   ))}
                   {assignedMinions.length > 3 && (
@@ -121,9 +127,9 @@ export default function TaskCard({ task, onClick, minions, expanded }: TaskCardP
         </div>
 
         {/* Subtasks indicator */}
-        {task.subtasks.length > 0 && (
+        {(task.subtask_ids || []).length > 0 && (
           <div className="pt-2 border-t border-white/10 text-xs text-gray-400">
-            {task.subtasks.length} subtask{task.subtasks.length !== 1 ? 's' : ''}
+            {(task.subtask_ids || []).length} subtask{(task.subtask_ids || []).length !== 1 ? 's' : ''}
             {expanded && ' (expanded)'}
           </div>
         )}

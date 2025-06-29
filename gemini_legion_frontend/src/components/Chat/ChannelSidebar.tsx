@@ -8,7 +8,7 @@ import CreateChannelModal from './CreateChannelModal'; // You're welcome, sweeth
 
 const ChannelSidebar = () => {
   // Destructure all channel-related state and actions from useChatStore
-  const { channels, selectedChannelId, selectChannel, createChannel } = useChatStore();
+  const { channels, selectedChannelId, selectChannel } = useChatStore(); // Removed createChannel
   console.log('[ChannelSidebar] Store values - channels:', JSON.parse(JSON.stringify(channels)), 'selectedChannelId:', selectedChannelId);
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)

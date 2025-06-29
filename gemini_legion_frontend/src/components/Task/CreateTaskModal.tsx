@@ -134,9 +134,9 @@ export default function CreateTaskModal({ onClose, minions }: CreateTaskModalPro
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-gradient-to-br from-legion-primary to-legion-accent
                                   flex items-center justify-center text-xs font-bold">
-                      {minion.name[0]}
+                      {minion.persona.name[0]}
                     </div>
-                    <span className="text-sm">{minion.name}</span>
+                    <span className="text-sm">{minion.persona.name}</span>
                   </div>
                 </button>
               ))}

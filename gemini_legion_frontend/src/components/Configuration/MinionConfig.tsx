@@ -13,7 +13,7 @@ interface MinionConfigProps {
 
 export default function MinionConfig({ minion, onSave, onCancel }: MinionConfigProps) {
   const [config, setConfig] = useState<Partial<Minion>>({
-    name: minion.name,
+    // name: minion.persona.name, // Name is part of persona, no need for top-level name in config state
     persona: { ...minion.persona },
     emotional_state: { ...minion.emotional_state }
   })
@@ -49,7 +49,7 @@ export default function MinionConfig({ minion, onSave, onCancel }: MinionConfigP
       <div className="bg-gray-900 rounded-lg border border-legion-primary/20 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10">
-          <h2 className="text-2xl font-bold text-white">Configure {minion.name}</h2>
+          <h2 className="text-2xl font-bold text-white">Configure {minion.persona.name}</h2>
           <button
             onClick={onCancel}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
