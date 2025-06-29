@@ -1,6 +1,5 @@
 import { Clock, Users, AlertCircle, CheckCircle, XCircle, Loader } from 'lucide-react'
-import type { Task } from '../../types/task'
-import type { Minion } from '../../types/minion'
+import type { Task, Minion } from '../../types' // Corrected import paths
 
 interface TaskCardProps {
   task: Task

@@ -15,7 +15,7 @@ const LegionDashboard = () => {
   
   // Calculate stats
   const activeMinions = minionList.filter(m => m.status === 'active').length
-  const totalTasks = minionList.reduce((sum, m) => sum + (m.current_task ? 1 : 0), 0)
+  // const totalTasks = minionList.reduce((sum, m) => sum + (m.current_task ? 1 : 0), 0) // Unused variable
   const avgEnergyLevel = minionList.reduce((sum, m) => sum + m.emotional_state.energy_level, 0) / (minionList.length || 1)
   const avgStressLevel = minionList.reduce((sum, m) => sum + m.emotional_state.stress_level, 0) / (minionList.length || 1)
   

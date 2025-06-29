@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react' // Removed useEffect
 import { 
-  Wrench, Globe, Terminal, FileText, Database, Search, 
+  Globe, Terminal, FileText, Database, Search, // Removed Wrench
   MessageSquare, Brain, Zap, Shield, Check 
 } from 'lucide-react'
 
@@ -183,7 +183,7 @@ export default function ToolSelector({ selectedTools, onChange }: ToolSelectorPr
         {Object.entries(groupedTools).map(([category, tools]) => {
           const categoryKey = category as keyof typeof CATEGORY_LABELS
           const allSelected = tools.every(t => selectedTools.includes(t.id))
-          const someSelected = tools.some(t => selectedTools.includes(t.id))
+          // const someSelected = tools.some(t => selectedTools.includes(t.id)) // Removed unused variable
           
           return (
             <div key={category} className="bg-white/5 rounded-lg p-4">

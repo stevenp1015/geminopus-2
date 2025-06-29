@@ -159,7 +159,7 @@ export interface CreateTaskRequestData { // Renamed from CreateTaskData to avoid
 export interface UpdateTaskRequestData extends Partial<CreateTaskRequestData> {
     status?: TaskStatus;
     progress?: number;
-    assigned_to?: string | string[]; // Or just string if API expects one
+    assigned_to?: string | null; // Aligned with CreateTaskRequestData and typical single assignee
     output?: string;
     error_message?: string;
     title?: string;

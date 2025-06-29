@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Users, CheckSquare, Square } from 'lucide-react';
+import { X } from 'lucide-react'; // Removed Users, CheckSquare, Square
 import { useChatStore } from '../../store/chatStore';
 import { useLegionStore, Minion } from '../../store/legionStore'; // We need Minion type and the store
 import toast from 'react-hot-toast';

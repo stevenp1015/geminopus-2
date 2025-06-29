@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useTaskStore } from '../../store/taskStore'
-import type { Minion } from '../../types/minion'
+import type { Minion, CreateTaskRequestData } from '../../types' // Corrected import path, Added CreateTaskRequestData
 
 interface CreateTaskModalProps {
   onClose: () => void
@@ -22,14 +22,19 @@ export default function CreateTaskModal({ onClose, minions }: CreateTaskModalPro
     e.preventDefault()
     
     try {
-      await createTask({
-        ...formData,
-        status: 'pending',
-        progress: 0,
-        subtasks: [],
-        dependencies: [],
-        metadata: {}
-      })
+      const payload: CreateTaskRequestData = {
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority,
+        // Take the first assigned minion if multiple are selected, as CreateTaskRequestData expects Optional[str]
+        assigned_to: formData.assigned_to.length > 0 ? formData.assigned_to[0] : undefined,
+        // dependencies and metadata will use defaults from CreateTaskRequestData if not provided
+        // formData does not currently collect these, so we can omit them or send empty arrays/objects
+        dependencies: [], // Explicitly sending empty array as per previous logic
+        metadata: {}      // Explicitly sending empty object as per previous logic
+      };
+      // console.log("Creating task with payload:", payload); // For debugging
+      await createTask(payload);
       onClose()
     } catch (error) {
       console.error('Failed to create task:', error)

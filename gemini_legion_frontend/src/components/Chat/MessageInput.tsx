@@ -60,23 +60,23 @@ const MessageInput = ({ channelId, currentMinionId }: MessageInputProps) => {
     }
   }
   
-  const getPersonalityHint = () => {
-    if (!currentMinion) return undefined
+  // const getPersonalityHint = () => { // Removed unused function
+  //   if (!currentMinion) return undefined
     
-    // Generate personality hint based on emotional state
-    const mood = currentMinion.emotional_state.mood
-    const energy = currentMinion.emotional_state.energy_level
+  //   // Generate personality hint based on emotional state
+  //   const mood = currentMinion.emotional_state.mood
+  //   const energy = currentMinion.emotional_state.energy_level
     
-    if (mood.valence > 0.5 && energy > 0.7) {
-      return "Enthusiastic and energetic"
-    } else if (mood.valence < -0.5 && energy < 0.3) {
-      return "Tired and stressed"
-    } else if (mood.curiosity > 0.7) {
-      return "Curious and inquisitive"
-    }
+  //   if (mood.valence > 0.5 && energy > 0.7) {
+  //     return "Enthusiastic and energetic"
+  //   } else if (mood.valence < -0.5 && energy < 0.3) {
+  //     return "Tired and stressed"
+  //   } else if (mood.curiosity > 0.7) {
+  //     return "Curious and inquisitive"
+  //   }
     
-    return undefined
-  }
+  //   return undefined
+  // }
   
   const getPriorityColor = () => {
     switch (priority) {

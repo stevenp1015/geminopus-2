@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, User, Zap, Brain, Heart } from 'lucide-react'
+import { Bot, User, Brain, Heart } from 'lucide-react' // Removed Zap
 import { format } from 'date-fns'
 import { Message, Minion } from '../../types'
 

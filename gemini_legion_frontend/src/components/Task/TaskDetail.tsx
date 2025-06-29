@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { 
-  Clock, Users, AlertCircle, CheckCircle, XCircle, Loader,
-  Edit, Trash, Plus, Link, Calendar, BarChart
+  Clock, CheckCircle, XCircle, Loader, // Removed Users, AlertCircle
+  Edit, Trash, BarChart // Removed Plus, Link, Calendar
 } from 'lucide-react'
 import { useTaskStore } from '../../store/taskStore'
-import type { Task, TaskUpdate } from '../../types/task'
-import type { Minion } from '../../types/minion'
+import type { Task, UpdateTaskRequestData, Minion } from '../../types' // Corrected import paths, using UpdateTaskRequestData for TaskUpdate
 
 interface TaskDetailProps {
   task: Task
@@ -16,7 +15,7 @@ export default function TaskDetail({ task, minions }: TaskDetailProps) {
   const { updateTask, deleteTask, decomposeTask } = useTaskStore()
   const [isEditing, setIsEditing] = useState(false)
   const [editedTask, setEditedTask] = useState(task)
-  const handleUpdate = async (updates: TaskUpdate) => {
+  const handleUpdate = async (updates: UpdateTaskRequestData) => { // Changed TaskUpdate to UpdateTaskRequestData
     try {
       await updateTask(task.task_id, updates)
       setIsEditing(false)

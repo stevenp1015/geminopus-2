@@ -3,7 +3,13 @@ import { devtools } from 'zustand/middleware'
 import { io, Socket } from 'socket.io-client'
 import toast from 'react-hot-toast'
 import { minionApi, channelApi, WS_BASE_URL, API_BASE_URL } from '../services/api'
-import type { Minion as MinionType, Channel as ChannelType, Message as MessageType } from '../types'
+import type {
+    Minion as MinionType,
+    Channel as ChannelType,
+    Message as MessageType,
+    WebSocketTaskPayload, // Added import
+    TaskEventData         // Added import
+} from '../types'
 
 export type { MinionType as Minion, ChannelType as Channel, MessageType as Message }
 

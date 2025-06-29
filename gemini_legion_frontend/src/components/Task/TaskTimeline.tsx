@@ -68,7 +68,7 @@ export default function TaskTimeline({ tasks, onTaskClick }: TaskTimelineProps) 
             
             {/* Tasks */}
             <div className="space-y-4">
-              {dateTasks.map((task, index) => (
+              {dateTasks.map((task) => ( // Removed unused 'index'
                 <div key={task.task_id} className="relative flex items-start gap-4">
                   {/* Timeline dot */}
                   <div className={`absolute left-3 w-3 h-3 rounded-full ${getStatusColor(task.status)}

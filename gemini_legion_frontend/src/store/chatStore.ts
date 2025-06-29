@@ -189,14 +189,13 @@ export const useChatStore = create<ChatState>()(
         console.log(`[ChatStore] sendMessage CALLED. Channel ID: ${channelId}, Sender ID: ${senderId}, Content: "${content}"`);
         try {
           // Send via channel endpoint
-          const message = await channelApi.sendMessage(channelId, {
+          await channelApi.sendMessage(channelId, { // Removed 'const message ='
             sender: senderId,      // Changed from sender_id
             channel_id: channelId, // Added channel_id
             content
           })
           
           // Don't add optimistically - let WebSocket event handle it to avoid duplicates
-          // get().addMessage(channelId, message)
         } catch (error) {
           console.error('Failed to send message:', error)
           toast.error('Failed to send message')

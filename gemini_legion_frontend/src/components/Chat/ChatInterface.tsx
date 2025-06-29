@@ -7,7 +7,7 @@ import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import ChannelSidebar from './ChannelSidebar'
 import ParticipantsList from './ParticipantsList'
-import { Channel, Message } from '../../types/communication'
+// import { Channel, Message } from '../../types/communication' // Unused direct import, types are available from ../../types
 
 const ChatInterface = () => {
   const { minions, selectedMinionId: legionSelectedMinionId } = useLegionStore() // Get selectedMinionId

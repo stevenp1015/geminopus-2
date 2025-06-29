@@ -3,7 +3,7 @@
  */
 
 import { API_BASE_URL, API_ENDPOINTS, getHeaders, handleAPIResponse } from './config'
-import type { Task, TaskStatus } from '../../types/task'
+import type { Task, TaskStatus, CreateTaskRequestData, UpdateTaskRequestData } from '../../types' // Added CreateTaskRequestData, UpdateTaskRequestData
 
 export const taskApi = {
   /**
@@ -31,15 +31,7 @@ export const taskApi = {
   /**
    * Create a new task
    */
-  async create(data: {
-    title: string
-    description: string
-    priority: 'low' | 'medium' | 'high' | 'critical'
-    assigned_to?: string[]
-    parent_task_id?: string
-    dependencies?: string[]
-    deadline?: string
-  }): Promise<Task> {
+  async create(data: CreateTaskRequestData): Promise<Task> { // Use CreateTaskRequestData
     const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.tasks.create}`, {
       method: 'POST',
       headers: getHeaders(),
@@ -51,7 +43,7 @@ export const taskApi = {
   /**
    * Update a task
    */
-  async update(taskId: string, data: Partial<Task>): Promise<Task> {
+  async update(taskId: string, data: UpdateTaskRequestData): Promise<Task> { // Use UpdateTaskRequestData
     const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.tasks.update(taskId)}`, {
       method: 'PUT',
       headers: getHeaders(),

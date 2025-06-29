@@ -69,7 +69,7 @@ export default function TaskManager() {
             <TaskCard
               task={task}
               onClick={() => setSelectedTask(task)}
-              minions={minions}
+              minions={Object.values(minions)} // Converted to array
               expanded={expandedTasks.has(task.task_id)}
             />
           </div>
@@ -182,7 +182,7 @@ export default function TaskManager() {
                   key={task.task_id}
                   task={task}
                   onClick={() => setSelectedTask(task)}
-                  minions={minions}
+                  minions={Object.values(minions)} // Converted to array
                 />
               ))}
             </div>
@@ -192,7 +192,7 @@ export default function TaskManager() {
         {/* Task Detail */}
         <div className="lg:col-span-1">
           {selectedTask ? (
-            <TaskDetail task={selectedTask} minions={minions} />
+            <TaskDetail task={selectedTask} minions={Object.values(minions)} /> // Converted to array
           ) : (
             <div className="bg-black/30 backdrop-blur-md rounded-lg border border-legion-primary/20 p-8">
               <div className="text-center text-gray-400">
@@ -207,7 +207,7 @@ export default function TaskManager() {
       {showCreateModal && (
         <CreateTaskModal
           onClose={() => setShowCreateModal(false)}
-          minions={minions}
+          minions={Object.values(minions)} // Converted to array
         />
       )}
     </div>

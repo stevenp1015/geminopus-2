@@ -1,9 +1,9 @@
-import { useState } from 'react'
+// import { useState } from 'react' // Unused
 import { 
   Heart, Zap, Brain, Users, Sparkles, TrendingUp, 
   Frown, Smile, Meh, AlertCircle, Activity 
 } from 'lucide-react'
-import type { EmotionalState, MoodVector } from '../../types/minion'
+import type { EmotionalState, MoodVector } from '../../types' // Corrected import path
 
 interface EmotionalStateConfigProps {
   emotionalState: EmotionalState

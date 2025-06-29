@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Save, X, Plus, Trash2, Brain, Zap, MessageSquare } from 'lucide-react'
-import type { Minion } from '../../types/minion'
+import { Save, X, Brain, Zap, MessageSquare } from 'lucide-react' // Removed Plus, Trash2
+import type { Minion } from '../../types' // Corrected import path
 import PersonaEditor from './PersonaEditor'
 import ToolSelector from './ToolSelector'
 import EmotionalStateConfig from './EmotionalStateConfig'

@@ -1,7 +1,13 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import toast from 'react-hot-toast' // Added import for toast
 import { taskApi } from '../services/api'
-import type { Task, CreateTaskData, UpdateTaskData } from '../types/task'
+import type {
+    Task,
+    CreateTaskRequestData, // Changed from CreateTaskData
+    UpdateTaskRequestData, // Changed from UpdateTaskData
+    TaskEventData          // Added import
+} from '../types' // Corrected import path
 
 interface TaskState {
   tasks: Task[]
@@ -11,17 +17,16 @@ interface TaskState {
   
   // Actions
   fetchTasks: () => Promise<void>
-  createTask: (data: CreateTaskData) => Promise<Task>
-  updateTask: (taskId: string, data: UpdateTaskData) => Promise<void>
+  createTask: (data: CreateTaskRequestData) => Promise<Task | undefined> // Adjusted return type
+  updateTask: (taskId: string, data: UpdateTaskRequestData) => Promise<void> // Adjusted type
   deleteTask: (taskId: string) => Promise<void>
   setSelectedTask: (task: Task | null) => void
-  addTaskMessage: (taskId: string, message: string) => void
-  updateTaskProgress: (taskId: string, progress: number) => void
+  addTaskMessage: (taskId: string, message: string) => void // Consider if this is still needed with full event updates
+  updateTaskProgress: (taskId: string, progress: number) => void // Consider if this is still needed
+  decomposeTask?: (taskId: string) => Promise<void>; // Added for TaskDetail.tsx
   
   // Real-time updates
-  // handleTaskUpdate: (task: Task) => void; // Will be replaced by handleTaskEvent
-  // handleTaskDeleted: (taskId: string) => void; // Will be replaced by handleTaskEvent
-  handleTaskEvent: (eventData: TaskEventData, eventType: string) => void; // Consolidated handler
+  handleTaskEvent: (eventData: TaskEventData, eventType: string) => void;
 }
 
 export const useTaskStore = create<TaskState>()(
@@ -43,31 +48,25 @@ export const useTaskStore = create<TaskState>()(
         }
       },
 
-      createTask: async (data: CreateTaskData) => {
+      createTask: async (data: CreateTaskRequestData) => { // Use CreateTaskRequestData
         // API call to create task, but state update will be handled by WebSocket event
         try {
-          const newTask = await taskApi.create(data);
+          const newTask = await taskApi.create(data); // taskApi.create will also need to expect CreateTaskRequestData
           // Optimistic update removed, rely on WebSocket 'task.created' event via handleTaskEvent
-          // set(state => ({ tasks: [...state.tasks, newTask] }));
           return newTask; // Return the created task for immediate feedback if needed
         } catch (error) {
           set({ error: (error as Error).message });
           console.error('Failed to create task via API:', error);
           toast.error(`Failed to create task: ${(error as Error).message}`);
-          // throw error; // Or return undefined
           return undefined;
         }
       },
 
-      updateTask: async (taskId: string, data: UpdateTaskData) => {
+      updateTask: async (taskId: string, data: UpdateTaskRequestData) => { // Use UpdateTaskRequestData
         // API call to update task, state update via WebSocket event
         try {
-          const updatedTask = await taskApi.update(taskId, data);
+          await taskApi.update(taskId, data); // taskApi.update will also need to expect UpdateTaskRequestData
           // Optimistic update removed
-          // set(state => ({
-          //   tasks: state.tasks.map(t => t.task_id === taskId ? updatedTask : t),
-          //   selectedTask: state.selectedTask?.task_id === taskId ? updatedTask : state.selectedTask
-          // }));
         } catch (error) {
           set({ error: (error as Error).message });
           console.error(`Failed to update task ${taskId} via API:`, error);
@@ -177,6 +176,24 @@ export const useTaskStore = create<TaskState>()(
         });
         console.log(`[TaskStore] Handled WebSocket event type '${eventType}' for task ${eventData.task_id}. New status: ${eventData.status}`);
       },
+
+      decomposeTask: async (taskId: string) => {
+        console.log(`[TaskStore] decomposeTask called for task ID: ${taskId}`);
+        toast.info(`Task decomposition requested for ${taskId}. (Not yet fully implemented)`);
+        // try {
+        //   // TODO: Implement API call if backend supports task decomposition
+        //   // const updatedTask = await taskApi.decompose(taskId);
+        //   // set(state => ({
+        //   //   tasks: state.tasks.map(t => t.task_id === taskId ? { ...t, ...updatedTask, status: 'decomposed' } : t),
+        //   //   selectedTask: state.selectedTask?.task_id === taskId ? { ...state.selectedTask, ...updatedTask, status: 'decomposed' } : state.selectedTask
+        //   // }));
+        //   // toast.success(`Task ${taskId} decomposition initiated.`);
+        // } catch (error) {
+        //   console.error(`Failed to decompose task ${taskId}:`, error);
+        //   toast.error(`Failed to decompose task ${taskId}: ${(error as Error).message}`);
+        //   set({ error: (error as Error).message });
+        // }
+      }
     }),
     {
       name: 'task-store'
