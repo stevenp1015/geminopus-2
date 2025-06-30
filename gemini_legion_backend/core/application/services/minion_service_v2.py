@@ -552,21 +552,33 @@ class MinionServiceV2:
                     logger.debug(f"Session state for predict for {minion_id}: emotional_cue='{emotional_cue}', history_cue='{memory_cue[:60]}...'")
 
                     response_text = None # Initialize before try block
+                    agent_response_content = None
                     try:
-                        response_text = await runner.predict(
-                            message=content,
+                        # Use run_agent_async instead of predict
+                        # The prompt is the 'content' of the user's message.
+                        # session_state will be used by LlmAgent to fill placeholders in the instruction.
+                        agent_response: Optional[Content] = await runner.run_agent_async(
+                            prompt=content, # This is the user's message to the agent
                             session_id=current_session_id,
                             user_id=sender_id,
-                            session_state=session_state_for_predict
+                            session_state=session_state_for_predict # This contains emotional_cue and history_cue
                         )
+
+                        if agent_response and agent_response.parts:
+                            # Assuming the response is text and in the first part
+                            response_text = "".join(part.text for part in agent_response.parts if hasattr(part, 'text'))
+                            logger.info(f"Minion {minion_id} ({agent_instance.persona.name}) raw response: {response_text}")
+                        else:
+                            logger.warning(f"Minion {minion_id} returned no response or empty parts from run_agent_async.")
+
                     except Exception as e:
-                        logger.error(f"Error during runner.predict() for minion {minion_id} (session {current_session_id}): {e}", exc_info=True)
+                        logger.error(f"Error during runner.run_agent_async() for minion {minion_id} (session {current_session_id}): {e}", exc_info=True)
                         # Further error handling from step 3.3.1 will be integrated here later
                     
                     if response_text:
                         # 3. Record minion's own response to its working memory
                         if hasattr(agent_instance, 'memory_system') and agent_instance.memory_system:
-                            agent_instance.memory_system.record_interaction(role=agent_instance.persona.name, content=response_text)
+                            agent_instance.memory_system.record_interaction(role=agent_instance.persona.name, content=response_text) # Use the extracted text
                             logger.debug(f"Recorded own response from {minion_id} (as role '{agent_instance.persona.name}') to its working memory.")
 
                         # Update emotional state

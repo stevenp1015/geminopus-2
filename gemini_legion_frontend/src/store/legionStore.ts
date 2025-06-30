@@ -197,6 +197,18 @@ export const useLegionStore = create<LegionState>()(
             status: data.status 
           })
         })
+
+        ws.on('minion_state_changed', (data: MinionType) => { // Assuming data is the full MinionType
+          console.log('[LegionStore] WebSocket event "minion_state_changed" RECEIVED. Data:', JSON.parse(JSON.stringify(data)));
+          if (data && data.minion_id) {
+            // The payload is the updated minion object directly
+            get().updateMinion(data.minion_id, data);
+            toast.success(`State for ${data.persona?.name || data.minion_id} has been updated.`);
+          } else {
+            console.error('[LegionStore] minion_state_changed event received malformed data:', data);
+            toast.error('Received corrupted minion state update.');
+          }
+        })
         
         // Message events (forward to chat store)
         ws.on('message_sent', (data: any) => {

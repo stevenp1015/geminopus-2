@@ -23,9 +23,10 @@ class ADKCommunicationKit:
         self.event_bus = event_bus
         logger.info(f"ADKCommunicationKit initialized for {minion_id}")
     
-    def send_channel_message(self, channel: str, message: str) -> Dict[str, Any]:
+    async def send_channel_message(self, channel: str, message: str) -> Dict[str, Any]:
         """
         Send a message to a channel by emitting an event through the event bus.
+        This is an async tool.
         
         Args:
             channel: The channel ID or name to send to
@@ -34,50 +35,36 @@ class ADKCommunicationKit:
         Returns:
             Dict containing success status and event details for the LLM.
         """
+        tool_name = "send_channel_message"
+        logger.info(f"Async Tool '{tool_name}' called by {self.minion_id} for channel '{channel}' with message: '{message[:50]}...'")
+
+        if not self.event_bus:
+            logger.error(f"Event bus not available for minion {self.minion_id} in {tool_name} tool.")
+            return {
+                "success": False,
+                "error": "Event bus not configured for this tool.",
+                "tool_used": tool_name,
+                "channel": channel,
+                "message_preview": message[:100]
+            }
+
         try:
-            tool_name = "send_channel_message"
-            logger.info(f"Tool '{tool_name}' called by {self.minion_id} for channel '{channel}' with message: '{message[:50]}...'")
-            
-            if not self.event_bus:
-                logger.error(f"Event bus not available for minion {self.minion_id} in {tool_name} tool.")
-                return {
-                    "success": False,
-                    "error": "Event bus not configured for this tool.",
-                    "tool_used": tool_name,
-                    "channel": channel,
-                    "message_preview": message[:100]
-                }
-
-            # The event_bus.emit_channel_message is an async function.
-            # Schedule it as a task from this synchronous tool context.
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(
-                        self.event_bus.emit_channel_message(
-                            channel_id=channel,
-                            sender_id=self.minion_id,
-                            content=message,
-                            source=f"tool:{tool_name}:{self.minion_id}"
-                        )
-                    )
-                    logger.info(f"Message from {self.minion_id} to channel {channel} queued for emission via event bus.")
-                    return {
-                        "success": True,
-                        "status": "Message emission initiated to channel.",
-                        "tool_used": tool_name,
-                        "channel": channel,
-                        "message_preview": message[:100]
-                    }
-                else:
-                    logger.error(f"No running event loop found to schedule emit_channel_message for {self.minion_id}.")
-                    return {"success": False, "error": "No running event loop.", "tool_used": tool_name}
-            except RuntimeError as e:
-                logger.error(f"RuntimeError getting event loop for {self.minion_id}: {e}. Cannot emit message.")
-                return {"success": False, "error": f"Event loop issue: {e}", "tool_used": tool_name}
-
+            await self.event_bus.emit_channel_message(
+                channel_id=channel,
+                sender_id=self.minion_id,
+                content=message,
+                source=f"tool:{tool_name}:{self.minion_id}"
+            )
+            logger.info(f"Message from {self.minion_id} to channel {channel} emitted via event bus.")
+            return {
+                "success": True,
+                "status": "Message successfully emitted to channel.",
+                "tool_used": tool_name,
+                "channel": channel,
+                "message_preview": message[:100]
+            }
         except Exception as e:
-            logger.error(f"Error in send_channel_message tool for {self.minion_id}: {e}", exc_info=True)
+            logger.error(f"Error in async send_channel_message tool for {self.minion_id}: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e),

@@ -261,8 +261,26 @@ export const useChatStore = create<ChatState>()(
       },
       
       // Real-time update handlers
-      handleNewMessage: (channelId: string, message: Message) => {
-        get().addMessage(channelId, message)
+      handleNewMessage: (channelId: string, incomingMessageData: any) => {
+        // Transform incoming message data to frontend Message type
+        const message: Message = {
+          message_id: incomingMessageData.message_id,
+          channel_id: incomingMessageData.channel_id,
+          sender_id: incomingMessageData.sender || incomingMessageData.sender_id, // Handle potential 'sender' from backend
+          sender_type: incomingMessageData.sender_type,
+          type: incomingMessageData.type, // Ensure this aligns with frontend Message['type']
+          content: incomingMessageData.content,
+          timestamp: incomingMessageData.timestamp,
+          priority: incomingMessageData.priority,
+          metadata: incomingMessageData.metadata,
+        };
+        // Basic validation
+        if (!message.message_id || !message.channel_id || !message.sender_id || !message.content) {
+            console.error("[ChatStore] handleNewMessage: Received message with missing critical fields after transformation.", incomingMessageData, message);
+            toast.error("Received a corrupted chat message.");
+            return;
+        }
+        get().addMessage(channelId, message);
       },
       
       handleChannelUpdate: (channelId: string, updates: Partial<Channel>) => {
