@@ -17,7 +17,7 @@ interface LegionState {
   // State
   minions: Record<string, MinionType>
   // channels: Record<string, ChannelType> // Moved to chatStore
-  messages: Record<string, MessageType[]> // Keeping messages here for now, though might also move to chatStore
+  // messages: Record<string, MessageType[]> // MOVED to chatStore
   selectedMinionId: string | null
   selectedChannelId: string | null // Keep selectedChannelId if other legion parts need it, or move to chatStore
   websocket: Socket | null
@@ -36,8 +36,8 @@ interface LegionState {
   // updateChannel: (channelId: string, updates: Partial<ChannelType>) => void // Moved to chatStore
   selectChannel: (channelId: string | null) => void // Keep if selectedChannelId remains, for UI sync
   
-  addMessage: (channelId: string, message: MessageType) => void
-  setMessages: (channelId: string, messages: MessageType[]) => void
+  // addMessage: (channelId: string, message: MessageType) => void // MOVED to chatStore
+  // setMessages: (channelId: string, messages: MessageType[]) => void // MOVED to chatStore
   
   connectWebSocket: () => void
   disconnectWebSocket: () => void
@@ -45,7 +45,7 @@ interface LegionState {
   // API calls
   fetchMinions: () => Promise<void>
   // fetchChannels: () => Promise<void> // Moved to chatStore
-  fetchMessages: (channelId: string) => Promise<void>
+  // fetchMessages: (channelId: string) => Promise<void> // MOVED to chatStore
   spawnMinion: (config: any) => Promise<void>
   sendMessage: (channelId: string, minionId: string, content: string) => Promise<void>
   sendCommanderMessage: (channelId: string, content: string) => Promise<void>
@@ -59,7 +59,7 @@ export const useLegionStore = create<LegionState>()(
       // Initial state
       minions: {},
       // channels: {}, // Moved to chatStore
-      messages: {},
+      // messages: {}, // MOVED to chatStore
       selectedMinionId: null,
       selectedChannelId: null,
       websocket: null,
@@ -137,17 +137,17 @@ export const useLegionStore = create<LegionState>()(
       // updateChannel: (channelId, updates) => set((state) => ({ ... })), // Moved
       selectChannel: (channelId) => set({ selectedChannelId: channelId }), // Kept for now
       
-      // Message actions
-      addMessage: (channelId, message) => set((state) => ({
-        messages: {
-          ...state.messages,
-          [channelId]: [...(state.messages[channelId] || []), message]
-        }
-      })),
+      // Message actions // MOVED to chatStore
+      // addMessage: (channelId, message) => set((state) => ({
+      //   messages: {
+      //     ...state.messages,
+      //     [channelId]: [...(state.messages[channelId] || []), message]
+      //   }
+      // })),
       
-      setMessages: (channelId, messages) => set((state) => ({
-        messages: { ...state.messages, [channelId]: messages }
-      })),
+      // setMessages: (channelId, messages) => set((state) => ({
+      //   messages: { ...state.messages, [channelId]: messages }
+      // })),
       
       // WebSocket management
       connectWebSocket: () => {
@@ -340,15 +340,15 @@ export const useLegionStore = create<LegionState>()(
       
       // fetchChannels: async () => { ... }, // Moved to chatStore
       
-      fetchMessages: async (channelId: string) => {
-        try {
-          const messages = await channelApi.getMessages(channelId, 100)
-          get().setMessages(channelId, messages)
-        } catch (error) {
-          console.error('Failed to fetch messages:', error)
-          toast.error('Failed to fetch messages')
-        }
-      },
+      // fetchMessages: async (channelId: string) => { // MOVED to chatStore
+      //   try {
+      //     const messages = await channelApi.getMessages(channelId, 100)
+      //     get().setMessages(channelId, messages)
+      //   } catch (error) {
+      //     console.error('Failed to fetch messages:', error)
+      //     toast.error('Failed to fetch messages')
+      //   }
+      // },
       
       spawnMinion: async (config: any) => {
         try {

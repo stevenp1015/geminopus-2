@@ -176,7 +176,8 @@ class MinionServiceV2:
         # response_length: str = "medium", # Obsolete for current MinionPersona model
         catchphrases: Optional[List[str]] = None,
         expertise_areas: Optional[List[str]] = None,
-        model_name: str = "gemini-2.5-flash" # Changed default model
+        model_name: str = "gemini-2.5-flash", # Changed default model
+        allowed_tools: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Spawn a new minion"""
         # Check if exists
@@ -192,7 +193,7 @@ class MinionServiceV2:
             # response_length=response_length, # Obsolete for current MinionPersona model
             catchphrases=catchphrases or [],
             expertise_areas=expertise_areas or [],
-            allowed_tools=["send_channel_message", "listen_to_channel"],
+            allowed_tools=allowed_tools if allowed_tools is not None else ["send_channel_message", "listen_to_channel"],
             model_name=model_name
         )
         
@@ -370,7 +371,8 @@ class MinionServiceV2:
             # personality_traits=["curious", "enthusiastic", "supportive"], # Obsolete, merged into quirks below
             quirks=["Uses lots of exclamation points!", "Loves learning new things", "curious", "enthusiastic", "supportive"],
             # response_length="medium", # Obsolete
-            catchphrases=["Let's explore that!", "How fascinating!", "I'm here to help!"]
+            catchphrases=["Let's explore that!", "How fascinating!", "I'm here to help!"],
+            allowed_tools=None # Explicitly pass None to use defaults in spawn_minion's Persona creation
         )
     
     async def _start_minion_agent(self, minion: Minion):
@@ -557,14 +559,28 @@ class MinionServiceV2:
                         # Use run_agent_async instead of predict
                         # The prompt is the 'content' of the user's message.
                         # session_state will be used by LlmAgent to fill placeholders in the instruction.
-                        agent_response: Optional[Content] = await runner.run_agent_async(
+                        # The Runner's method is run_async, which internally calls the agent's execution logic.
+                        agent_response_generator = runner.run_async(
                             prompt=content, # This is the user's message to the agent
                             session_id=current_session_id,
                             user_id=sender_id,
-                            session_state=session_state_for_predict # This contains emotional_cue and history_cue
+                            session_state=session_state_for_predict, # This contains emotional_cue and history_cue
+                            # request_id=f"req_{current_session_id}_{datetime.utcnow().isoformat()}" # Optional: for tracing
                         )
 
-                        if agent_response and agent_response.parts:
+                        # The run_async method of the ADK Runner returns an async generator of Events.
+                        # We need to iterate through it to get the final response or tool calls.
+                        # For a simple text response, we typically look for the last event's content.
+                        final_agent_response_content: Optional[Content] = None
+                        async for event_obj in agent_response_generator:
+                            # Process events if needed (e.g., tool calls, partial responses)
+                            # For now, we assume the last event with text content is the one we want.
+                            if event_obj.content and any(part.text for part in event_obj.content.parts if hasattr(part, 'text')):
+                                final_agent_response_content = event_obj.content
+                            if event_obj.is_final_response(): # Check if the event marks the end of the agent's turn
+                                break
+
+                        if final_agent_response_content and final_agent_response_content.parts:
                             # Assuming the response is text and in the first part
                             response_text = "".join(part.text for part in agent_response.parts if hasattr(part, 'text'))
                             logger.info(f"Minion {minion_id} ({agent_instance.persona.name}) raw response: {response_text}")

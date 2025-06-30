@@ -81,17 +81,20 @@ class ADKMinionAgent(LlmAgent):
         system_instruction = f"{base_instruction_text}\n\nYour current emotional disposition: {{current_emotional_cue}}\n\nConversation Context:\n{{conversation_history_cue}}"
 
         # Get model configuration
-        model_name = getattr(persona, 'model_name', "gemini-2.5-flash") # Changed default model
+        model_name = persona.model_name # Directly access as it has a default
         
-        # Temperature based on personality
-        temperature = self._get_temperature_for_personality(persona.base_personality)
+        # Temperature from persona
+        temperature = persona.temperature # Directly access as it has a default
+
+        # Max tokens from persona
+        max_tokens = persona.max_tokens # Directly access as it has a default
         
         # Configure generation settings
         generate_config = genai_types.GenerateContentConfig( # Use aliased genai_types
             temperature=temperature,
-            top_p=0.95,
-            top_k=40,
-            max_output_tokens=getattr(persona, 'max_tokens', 8192),
+            top_p=0.95, # Default or could also be part of persona
+            top_k=40,   # Default or could also be part of persona
+            max_output_tokens=max_tokens,
         )
         
         # Initialize the parent LlmAgent first
@@ -149,24 +152,6 @@ a unique entity with your own personality and perspective!"""
         # The emotional_engine reference here was causing a NameError.
         # Emotional cues are injected dynamically via Session.state by the Runner.
         return instruction
-    
-    @staticmethod
-    def _get_temperature_for_personality(base_personality: str) -> float:
-        """Get temperature based on personality."""
-        personality_temps = {
-            "Analytical": 0.3,
-            "Creative": 0.9,
-            "Chaotic": 1.0,
-            "Friendly": 0.7,
-            "Professional": 0.4,
-            "Witty": 0.8,
-            "Enthusiastic": 0.85,
-            "Wise": 0.5,
-            "Mischievous": 0.95,
-            "grumpy hacker": 0.6,
-            "cheerful helper": 0.8
-        }
-        return personality_temps.get(base_personality, 0.7)
     
     async def start(self):
         """Start the minion agent - minimal implementation."""

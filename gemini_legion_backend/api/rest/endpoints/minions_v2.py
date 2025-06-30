@@ -158,7 +158,7 @@ async def spawn_minion(
             quirks=request.quirks,
             catchphrases=request.catchphrases,
             expertise_areas=request.expertise,  # Map 'expertise' to 'expertise_areas'
-            # tools parameter from request is not used by service
+            allowed_tools=request.tools # Pass the tools from the request
         )
         
         # Override the minion_id in the response to use the UUID
