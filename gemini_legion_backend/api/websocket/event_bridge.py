@@ -108,23 +108,42 @@ class WebSocketEventBridge:
             logger.debug(f"No WebSocket subscribers for channel {channel_id}")
             return
         
-        # Format message for WebSocket
+        # Format message for WebSocket (matching frontend Message interface)
+        sender_id = event.data.get("sender_id")
+        
+        # Determine sender_type based on sender_id
+        sender_type = "user"  # Default
+        if sender_id == "system":
+            sender_type = "system"
+        elif sender_id and sender_id != "commander":
+            sender_type = "minion"  # Assume non-system, non-commander senders are minions
+        
+        # Map message_type to frontend type enum
+        message_type = event.metadata.get("message_type", "chat")
+        frontend_type = "CHAT"  # Default
+        if message_type == "system":
+            frontend_type = "SYSTEM"
+        elif message_type == "task":
+            frontend_type = "TASK"
+        
         ws_message = {
             "type": "message",
             "channel_id": channel_id,
             "message": {
                 "message_id": event.data.get("message_id"),
-                "sender_id": event.data.get("sender_id"),
+                "channel_id": channel_id,  # Frontend expects this in message object too
+                "sender_id": sender_id,
+                "sender_type": sender_type,  # Required by frontend
+                "type": frontend_type,       # Required by frontend  
                 "content": event.data.get("content"),
                 "timestamp": event.data.get("timestamp"),
-                "message_type": event.metadata.get("message_type", "chat"),
                 "metadata": event.metadata
             }
         }
         
         # Emit to all subscribers
         for sid in subscribers:
-            await self.sio.emit("message", ws_message, to=sid)
+            await self.sio.emit("message_sent", ws_message, to=sid)
         
         logger.debug(f"Broadcast message to {len(subscribers)} clients for channel {channel_id}")
     
@@ -188,15 +207,20 @@ class WebSocketEventBridge:
         # Get subscribers for this minion
         subscribers = self.minion_subscriptions.get(minion_id_for_routing, set())
         
-        # Also broadcast to all for spawned/despawned events
+        # Emit specific event names instead of generic "minion_event"
+        specific_event_name = event.type.value.replace("minion.", "minion_")
+        
+        # Broadcast spawn/despawn events to all clients, others only to subscribers
         if event.type in [EventType.MINION_SPAWNED, EventType.MINION_DESPAWNED]:
-            await self.sio.emit("minion_event", ws_payload)
+            await self.sio.emit(specific_event_name, ws_payload)  # Emit specific event name
+            logger.debug(f"Broadcast {specific_event_name} to all clients")
         else:
             # Only to subscribers
             for sid in subscribers:
-                await self.sio.emit("minion_event", ws_payload, to=sid)
+                await self.sio.emit(specific_event_name, ws_payload, to=sid)
+            logger.debug(f"Broadcast {specific_event_name} to {len(subscribers)} subscribers")
         
-        logger.debug(f"Broadcast {event_name} for minion {minion_id_for_routing}")
+        logger.debug(f"Emitted {specific_event_name} for minion {minion_id_for_routing}")
     
     async def handle_client_connect(self, sid: str, auth: Optional[Dict[str, Any]] = None):
         """Handle new WebSocket client connection"""

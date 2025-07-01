@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = Field(default=None, env="REDIS_URL")
     
     # API Keys (stored securely)
-    gemini_api_key: Optional[str] = Field(default=None, env="GEMINI_API_KEY")
+    GOOGLE_API_KEY: Optional[str] = Field(default=None, env="GOOGLE_API_KEY")
     openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     anthropic_api_key: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
     

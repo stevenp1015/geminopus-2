@@ -100,7 +100,7 @@ The backend is primarily structured into `api`, `config`, `core`, and `main_v2.p
 
 *   **`config/settings.py`**: Centralized Pydantic-based configuration.
 *   Environment variables and `.env` files are supported.
-*   **ADK Link**: `settings.database_url` is vital for persistent ADK `SessionService`. `settings.gemini_api_key` is used by `MinionServiceV2` for `ADKMinionAgent`.
+*   **ADK Link**: `settings.database_url` is vital for persistent ADK `SessionService`. `settings.GOOGLE_API_KEY` is used by `MinionServiceV2` for `ADKMinionAgent`.
 
 ### 2.6 State Management Systems (Backend)
 

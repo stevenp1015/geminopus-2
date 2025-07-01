@@ -14,6 +14,7 @@ import os
 # ADK imports
 from google.adk import Runner
 from google.genai.types import Content, Part
+from google.genai import types as genai_types
 
 from ...domain import Minion, MinionPersona, EmotionalState, MoodVector, WorkingMemory
 from ...infrastructure.persistence.repositories import MinionRepository
@@ -49,7 +50,7 @@ class MinionServiceV2:
             session_service: ADK session service for Runner
         """
         self.minion_repo = minion_repository
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         self.session_service = session_service
         self.event_bus = get_event_bus()
         
@@ -120,8 +121,12 @@ class MinionServiceV2:
                  logger.warning(f"Minion {minion_id} model_name changed. Full agent/runner re-initialization might be required for this to take effect in ADK predict calls.")
 
             # Update agent's internal persona reference if it's a copy, though it should be a direct reference.
-            if hasattr(agent, '_persona'):
-                agent._persona = minion.persona
+            if hasattr(agent, 'persona'):
+                # Note: The persona property is read-only, but the underlying _persona should be updated
+                # For now, we rely on the fact that the persona object itself is updated in the repository
+                logger.debug(f"Agent for {minion_id} has persona property - persona updates should be reflected")
+            else:
+                logger.warning(f"Agent for {minion_id} doesn't have persona property")
 
 
         await self.minion_repo.save(minion)
@@ -378,10 +383,10 @@ class MinionServiceV2:
     async def _start_minion_agent(self, minion: Minion):
         """Start an agent for a minion"""
         try:
+            os.environ['GOOGLE_API_KEY'] = self.api_key
             agent = ADKMinionAgent(
                 minion=minion,
                 event_bus=self.event_bus,
-                api_key=self.api_key
             )
             
             await agent.start()
@@ -443,6 +448,20 @@ class MinionServiceV2:
     
     def _emotional_state_to_dict(self, state: EmotionalState) -> Dict[str, Any]:
         """Convert emotional state to dict"""
+        # Ensure commander opinion exists for frontend
+        if "commander" not in state.opinion_scores:
+            state.get_opinion_of("commander")  # Creates default opinion if not exists
+        
+        # Convert opinion scores to the full object format expected by frontend
+        opinion_scores_dict = {}
+        for entity_id, opinion_score in state.opinion_scores.items():
+            opinion_scores_dict[entity_id] = {
+                "affection": opinion_score.affection * 100,  # Convert to 0-100 scale
+                "trust": opinion_score.trust * 100,         # Convert to 0-100 scale  
+                "respect": opinion_score.respect * 100,     # Convert to 0-100 scale
+                "overall_sentiment": opinion_score.overall_sentiment
+            }
+        
         return {
             "mood": {
                 "valence": state.mood.valence,
@@ -450,7 +469,8 @@ class MinionServiceV2:
                 "dominance": state.mood.dominance
             },
             "energy_level": state.energy_level,
-            "stress_level": state.stress_level
+            "stress_level": state.stress_level,
+            "opinion_scores": opinion_scores_dict  # Now with proper object structure
         }
     
     async def _handle_channel_message(self, event: Any):
@@ -556,46 +576,107 @@ class MinionServiceV2:
                     response_text = None # Initialize before try block
                     agent_response_content = None
                     try:
-                        # Use run_agent_async instead of predict
-                        # The prompt is the 'content' of the user's message.
-                        # session_state will be used by LlmAgent to fill placeholders in the instruction.
-                        # The Runner's method is run_async, which internally calls the agent's execution logic.
+                        # Create proper Content format for ADK Runner
+                        message_content = genai_types.Content(
+                            role='user',
+                            parts=[genai_types.Part(text=content)]
+                        )
+                        
+                        # Update session state BEFORE calling runner
+                        try:
+                            # CREATE the session if it doesn't exist (ADK requirement)
+                            session = await self.session_service.create_session(
+                                app_name="gemini-legion",
+                                user_id=sender_id,
+                                session_id=current_session_id
+                            )
+                            
+                            # Update session state with emotional and memory context
+                            session.state.update({
+                                "current_emotional_cue": emotional_cue,
+                                "conversation_history_cue": memory_cue
+                            })
+                            
+                            # InMemorySessionService auto-saves, no explicit save needed
+                            logger.debug(f"Created and updated session state for {minion_id}: emotional_cue='{emotional_cue}', history_cue='{memory_cue[:60]}...'")
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to create/update session state for {minion_id}: {e}")
+                            # Continue with execution but log the issue
+                        
+                        # Call runner with correct ADK parameters
                         agent_response_generator = runner.run_async(
-                            prompt=content, # This is the user's message to the agent
-                            session_id=current_session_id,
                             user_id=sender_id,
-                            session_state=session_state_for_predict, # This contains emotional_cue and history_cue
-                            # request_id=f"req_{current_session_id}_{datetime.utcnow().isoformat()}" # Optional: for tracing
+                            session_id=current_session_id,
+                            new_message=message_content
                         )
 
-                        # The run_async method of the ADK Runner returns an async generator of Events.
-                        # We need to iterate through it to get the final response or tool calls.
-                        # For a simple text response, we typically look for the last event's content.
+                        # Process events from ADK Runner
                         final_agent_response_content: Optional[Content] = None
                         async for event_obj in agent_response_generator:
-                            # Process events if needed (e.g., tool calls, partial responses)
-                            # For now, we assume the last event with text content is the one we want.
-                            if event_obj.content and any(part.text for part in event_obj.content.parts if hasattr(part, 'text')):
-                                final_agent_response_content = event_obj.content
-                            if event_obj.is_final_response(): # Check if the event marks the end of the agent's turn
+                            # Log event for debugging
+                            logger.debug(f"Received event from {minion_id}: type={type(event_obj).__name__}, final={event_obj.is_final_response()}")
+                            
+                            # Check for content in the event
+                            if event_obj.content and event_obj.content.parts:
+                                # Look for text parts
+                                text_parts = [part.text for part in event_obj.content.parts if hasattr(part, 'text') and part.text]
+                                if text_parts:
+                                    final_agent_response_content = event_obj.content
+                                    logger.debug(f"Found text content in event from {minion_id}: {text_parts[0][:50]}...")
+                            
+                            # Break on final response to avoid processing duplicate events
+                            if event_obj.is_final_response():
+                                logger.debug(f"Final response event received from {minion_id}")
                                 break
 
                         if final_agent_response_content and final_agent_response_content.parts:
-                            # Assuming the response is text and in the first part
-                            response_text = "".join(part.text for part in agent_response.parts if hasattr(part, 'text'))
-                            logger.info(f"Minion {minion_id} ({agent_instance.persona.name}) raw response: {response_text}")
+                            # Extract text from all text parts
+                            text_parts = [part.text for part in final_agent_response_content.parts if hasattr(part, 'text') and part.text]
+                            response_text = "".join(text_parts)
+                            logger.info(f"Minion {minion_id} ({agent_instance.persona.name}) response: {response_text}")
                         else:
-                            logger.warning(f"Minion {minion_id} returned no response or empty parts from run_agent_async.")
+                            logger.warning(f"Minion {minion_id} returned no text response from ADK runner")
 
                     except Exception as e:
-                        logger.error(f"Error during runner.run_agent_async() for minion {minion_id} (session {current_session_id}): {e}", exc_info=True)
-                        # Further error handling from step 3.3.1 will be integrated here later
+                        logger.error(f"Error during ADK runner execution for minion {minion_id} (session {current_session_id}): {str(e)}", exc_info=True)
+                        
+                        # Provide fallback response to prevent silent failures
+                        # Safe access to persona name in case of initialization issues
+                        persona_name = "Unknown Minion"
+                        try:
+                            persona_name = agent_instance.persona.name
+                        except:
+                            # Fallback if persona access fails
+                            persona_name = minion_id
+                        
+                        response_text = f"[Error: {persona_name} encountered an issue processing your message]"
+                        
+                        # Emit error event for debugging
+                        if self.event_bus:
+                            await self.event_bus.emit(
+                                EventType.MINION_ERROR,
+                                data={
+                                    "minion_id": minion_id,
+                                    "error": str(e),
+                                    "channel_id": channel_id,
+                                    "message": content[:100]
+                                },
+                                source="minion_service:adk_runner_error"
+                            )
                     
                     if response_text:
                         # 3. Record minion's own response to its working memory
                         if hasattr(agent_instance, 'memory_system') and agent_instance.memory_system:
-                            agent_instance.memory_system.record_interaction(role=agent_instance.persona.name, content=response_text) # Use the extracted text
-                            logger.debug(f"Recorded own response from {minion_id} (as role '{agent_instance.persona.name}') to its working memory.")
+                            # Safe access to persona name
+                            persona_name = minion_id  # Fallback
+                            try:
+                                persona_name = agent_instance.persona.name
+                            except:
+                                pass  # Use fallback
+                            
+                            agent_instance.memory_system.record_interaction(role=persona_name, content=response_text)
+                            logger.debug(f"Recorded own response from {minion_id} (as role '{persona_name}') to its working memory.")
 
                         # Update emotional state
                         if hasattr(agent_instance, 'emotional_engine') and agent_instance.emotional_engine:

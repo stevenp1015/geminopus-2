@@ -14,7 +14,19 @@ interface MinionDetailProps {
 const MinionDetail = ({ minion }: MinionDetailProps) => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
   const mood = minion.emotional_state.mood
-  const commanderOpinion = minion.emotional_state.opinion_scores['commander']
+  
+  // Safe access to opinion scores with fallback and defensive programming
+  const rawCommanderOpinion = minion.emotional_state.opinion_scores?.['commander'] ?? 0.5
+  
+  // Handle both old (numeric) and new (object) opinion score formats
+  const commanderOpinion = typeof rawCommanderOpinion === 'number' 
+    ? {
+        affection: rawCommanderOpinion * 100,
+        trust: rawCommanderOpinion * 100, 
+        respect: rawCommanderOpinion * 100,
+        overall_sentiment: rawCommanderOpinion
+      }
+    : rawCommanderOpinion
 
   const handleSavePersona = async (updatedConfig: Partial<Minion>) => {
     if (!minion?.minion_id || !updatedConfig.persona) return;

@@ -68,7 +68,7 @@ class ServiceContainerV2:
         
         self.minion_service = MinionServiceV2(
             minion_repository=self.minion_repo,
-            api_key=os.getenv("GEMINI_API_KEY"),
+            api_key=os.getenv("GOOGLE_API_KEY"),
             session_service=self.session_service  # Pass session service for Runner usage
         )
 

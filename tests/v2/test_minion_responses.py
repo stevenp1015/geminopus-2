@@ -139,8 +139,8 @@ class TestMinionResponses:
     async def test_no_placeholder_responses(self, test_minion, event_bus, response_collector):
         """Test that minions NEVER return placeholder text"""
         # Skip if no API key
-        if not os.getenv("GEMINI_API_KEY"):
-            pytest.skip("GEMINI_API_KEY not set")
+        if not os.getenv("GOOGLE_API_KEY"):
+            pytest.skip("GOOGLE_API_KEY not set")
         
         # Create minion agent
         agent = ADKMinionAgent(test_minion)
@@ -169,8 +169,8 @@ class TestMinionResponses:
     
     async def test_response_quality(self, test_minion, event_bus, response_collector):
         """Test that responses are high quality and personality-driven"""
-        if not os.getenv("GEMINI_API_KEY"):
-            pytest.skip("GEMINI_API_KEY not set")
+        if not os.getenv("GOOGLE_API_KEY"):
+            pytest.skip("GOOGLE_API_KEY not set")
         
         agent = ADKMinionAgent(test_minion)
         await agent.start()
@@ -266,8 +266,8 @@ class TestMinionResponses:
             status="active"
         )
         
-        if not os.getenv("GEMINI_API_KEY"):
-            pytest.skip("GEMINI_API_KEY not set")
+        if not os.getenv("GOOGLE_API_KEY"):
+            pytest.skip("GOOGLE_API_KEY not set")
         
         agent = ADKMinionAgent(pirate_minion)
         await agent.start()
@@ -308,8 +308,8 @@ class TestMinionResponses:
     
     async def test_minion_handles_context(self, test_minion, event_bus, response_collector):
         """Test that minions maintain context across messages"""
-        if not os.getenv("GEMINI_API_KEY"):
-            pytest.skip("GEMINI_API_KEY not set")
+        if not os.getenv("GOOGLE_API_KEY"):
+            pytest.skip("GOOGLE_API_KEY not set")
         
         agent = ADKMinionAgent(test_minion)
         await agent.start()

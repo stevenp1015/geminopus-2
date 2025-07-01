@@ -104,7 +104,7 @@ The most critical issue preventing minions from responding is the "Session not f
     *   Subsequent messages to the same minion in the same channel use the same `session_id`.
 
 **Potential Pitfalls:**
-*   Ensure `GEMINI_API_KEY` environment variable is correctly set and accessible.
+*   Ensure `GOOGLE_API_KEY` environment variable is correctly set and accessible.
 *   Typos in `session_id` format or parameters passed to `predict`.
 *   The `InMemorySessionService` has limitations (it's in-memory, so sessions are lost on restart). For true persistence, `DatabaseSessionService` is needed later.
 *   If "Session not found" errors *still* occur, it points to a fundamental issue in how the `Runner` or `InMemorySessionService` is configured or how ADK expects `predict` to be used with new sessions. The `Project_Context_Crucible.md` is the definitive guide here.

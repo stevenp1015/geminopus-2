@@ -32,7 +32,7 @@ pip install -r requirements.txt
 # Set up environment variables
 cp .env.example .env
 # Edit .env and add:
-# GEMINI_API_KEY=your-actual-api-key
+# GOOGLE_API_KEY=your-actual-api-key
 # REDIS_URL=redis://localhost:6379
 # MONGODB_URL=mongodb://localhost:27017/gemini_legion
 # PORT=8001  # V2 on different port for testing
@@ -99,7 +99,7 @@ Perfect for zero-downtime migration:
 docker build -t gemini-legion:v2 -f Dockerfile.v2 .
 docker run -d --name gemini-legion-v2 \
   -p 8001:8001 \
-  -e GEMINI_API_KEY=$GEMINI_API_KEY \
+  -e GOOGLE_API_KEY=$GOOGLE_API_KEY \
   -e REDIS_URL=$REDIS_URL \
   -e MONGODB_URL=$MONGODB_URL \
   gemini-legion:v2
@@ -149,7 +149,7 @@ spec:
         ports:
         - containerPort: 8001
         env:
-        - name: GEMINI_API_KEY
+        - name: GOOGLE_API_KEY
           valueFrom:
             secretKeyRef:
               name: gemini-secrets
@@ -191,7 +191,7 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - REDIS_URL=redis://redis:6379
       - MONGODB_URL=mongodb://mongo:27017/gemini_legion
       - EVENT_BUS_MODE=distributed
@@ -365,7 +365,7 @@ Complete list for V2:
 
 ```bash
 # Required
-GEMINI_API_KEY=your-api-key
+GOOGLE_API_KEY=your-api-key
 
 # Optional with defaults
 PORT=8001

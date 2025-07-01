@@ -95,7 +95,7 @@ But RIGHT NOW, Steven just wants to see his minions respond to messages.
 cd /users/ttig/downloads/geminopus-branch
 
 # 2. Set your Gemini API key if not already set
-export GEMINI_API_KEY="your-api-key-here"
+export GOOGLE_API_KEY="your-api-key-here"
 
 # 3. Run the magic startup script
 ./start_v2.sh
