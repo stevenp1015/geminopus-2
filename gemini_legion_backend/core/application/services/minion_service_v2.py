@@ -604,42 +604,76 @@ class MinionServiceV2:
                             logger.error(f"Failed to create/update session state for {minion_id}: {e}")
                             # Continue with execution but log the issue
                         
-                        # Call runner with correct ADK parameters
-                        agent_response_generator = runner.run_async(
-                            user_id=sender_id,
-                            session_id=current_session_id,
-                            new_message=message_content
-                        )
+                        # Step 1.2: Focus on run_async and session verification
+                        # This block assumes predict() was found to be non-existent or failed due to session issues as well.
 
-                        # Process events from ADK Runner
-                        final_agent_response_content: Optional[Content] = None
-                        async for event_obj in agent_response_generator:
-                            # Log event for debugging
-                            logger.debug(f"Received event from {minion_id}: type={type(event_obj).__name__}, final={event_obj.is_final_response()}")
-                            
-                            # Check for content in the event
-                            if event_obj.content and event_obj.content.parts:
-                                # Look for text parts
-                                text_parts = [part.text for part in event_obj.content.parts if hasattr(part, 'text') and part.text]
-                                if text_parts:
-                                    final_agent_response_content = event_obj.content
-                                    logger.debug(f"Found text content in event from {minion_id}: {text_parts[0][:50]}...")
-                            
-                            # Break on final response to avoid processing duplicate events
-                            if event_obj.is_final_response():
-                                logger.debug(f"Final response event received from {minion_id}")
-                                break
+                        response_text = None
+                        logger.info(f"Proceeding to test runner.run_async() for minion {minion_id}, session {current_session_id}")
 
-                        if final_agent_response_content and final_agent_response_content.parts:
-                            # Extract text from all text parts
-                            text_parts = [part.text for part in final_agent_response_content.parts if hasattr(part, 'text') and part.text]
-                            response_text = "".join(text_parts)
-                            logger.info(f"Minion {minion_id} ({agent_instance.persona.name}) response: {response_text}")
-                        else:
-                            logger.warning(f"Minion {minion_id} returned no text response from ADK runner")
+                        # Verify session retrieval just before run_async
+                        try:
+                            retrieved_session_for_run_async = await self.session_service.get_session(
+                                app_name="gemini-legion",
+                                user_id=sender_id,
+                                session_id=current_session_id
+                            )
+                            if retrieved_session_for_run_async:
+                                logger.info(f"Session {current_session_id} VERIFIED for run_async. State: {retrieved_session_for_run_async.state}")
+                            else:
+                                # This is a critical failure point if the session just created cannot be immediately retrieved.
+                                logger.error(f"CRITICAL FAILURE: Session {current_session_id} NOT FOUND by get_session right before run_async call.")
+                                raise ValueError(f"Session {current_session_id} disappeared before run_async.")
+                        except Exception as e_get_sess_async:
+                            logger.error(f"CRITICAL FAILURE: Error verifying session {current_session_id} with get_session before run_async: {e_get_sess_async}", exc_info=True)
+                            raise # Re-raise to stop before calling run_async with a known bad session situation
 
+                        try:
+                            # Original run_async logic
+                            agent_response_generator = runner.run_async(
+                                user_id=sender_id,
+                                session_id=current_session_id,
+                                new_message=message_content
+                            )
+
+                            final_agent_response_content: Optional[Content] = None
+                            async for event_obj in agent_response_generator:
+                                logger.debug(f"Received event from {minion_id} (run_async): type={type(event_obj).__name__}, final={event_obj.is_final_response()}")
+                                if event_obj.content and event_obj.content.parts:
+                                    text_parts = [part.text for part in event_obj.content.parts if hasattr(part, 'text') and part.text]
+                                    if text_parts:
+                                        final_agent_response_content = event_obj.content
+                                        logger.debug(f"Found text content in event from {minion_id} (run_async): {text_parts[0][:50]}...")
+                                if event_obj.is_final_response():
+                                    logger.debug(f"Final response event received from {minion_id} (run_async)")
+                                    break
+
+                            if final_agent_response_content and final_agent_response_content.parts:
+                                text_parts = [part.text for part in final_agent_response_content.parts if hasattr(part, 'text') and part.text]
+                                response_text = "".join(text_parts)
+                                logger.info(f"Minion {minion_id} ({agent_instance.persona.name}) response (run_async): {response_text}")
+                            else:
+                                logger.warning(f"Minion {minion_id} returned no text response from ADK runner (run_async)")
+
+                        except genai_types.generation_types.StopCandidateException as e_stop:
+                            logger.error(f"ADK runner.run_async for minion {minion_id} (session {current_session_id}) resulted in StopCandidateException: {e_stop}", exc_info=True)
+                            response_text = f"[Error: {minion_id} response generation was stopped (run_async). Safety settings? Details: {e_stop.message}]"
+                        except Exception as e_async:
+                            # This is where "Session not found" would typically occur if the session setup failed.
+                            logger.error(f"Error during ADK runner.run_async for minion {minion_id} (session {current_session_id}): {e_async}", exc_info=True)
+                            if "Session not found" in str(e_async):
+                                logger.critical(f"CRITICAL: 'Session not found' with runner.run_async for {minion_id} DESPITE CHECKS!")
+                            response_text = f"[Error: {minion_id} encountered an issue with run_async: {e_async}]"
+
+                    # This outer try-except was originally for the entire block.
+                    # For Step 1.2, we're focusing on exceptions from the run_async block itself.
                     except Exception as e:
-                        logger.error(f"Error during ADK runner execution for minion {minion_id} (session {current_session_id}): {str(e)}", exc_info=True)
+                        logger.error(f"Outer error during ADK runner execution block for minion {minion_id} (session {current_session_id}): {str(e)}", exc_info=True)
+                        # If we reached here due to the explicit raise from get_session failure:
+                        if "disappeared before run_async" in str(e) or f"Error verifying session {current_session_id}" in str(e):
+                             response_text = f"[FATAL ERROR: Session integrity issue for {minion_id} before run_async. See logs.]"
+                        # else, it's an unexpected error in this outer scope.
+                        elif not response_text: # If response_text wasn't set by a more specific catch
+                             response_text = f"[Error: {minion_id} had an unexpected issue in handler: {e}]"
                         
                         # Provide fallback response to prevent silent failures
                         # Safe access to persona name in case of initialization issues
