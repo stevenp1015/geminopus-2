@@ -49,13 +49,13 @@ class WebSocketEventBridge:
     def _setup_event_subscriptions(self):
         """Subscribe to events that should be forwarded to WebSocket"""
         # Channel events
-        logger.debug(f"[WebSocketEventBridge] Subscribing self._handle_channel_message ({self._handle_channel_message.__qualname__ if hasattr(self._handle_channel_message, '__qualname__') else str(self._handle_channel_message)}) to EventType.CHANNEL_MESSAGE ({EventType.CHANNEL_MESSAGE.value})")
+        logger.info(f"[WebSocketEventBridge._setup_event_subscriptions] Attempting to subscribe self._handle_channel_message to EventType.CHANNEL_MESSAGE ({EventType.CHANNEL_MESSAGE})")
         self.event_bus.subscribe(EventType.CHANNEL_MESSAGE, self._handle_channel_message)
 
-        logger.debug(f"[WebSocketEventBridge] Subscribing self._handle_channel_event to EventType.CHANNEL_CREATED ({EventType.CHANNEL_CREATED.value})")
+        logger.info(f"[WebSocketEventBridge._setup_event_subscriptions] Attempting to subscribe self._handle_channel_event to EventType.CHANNEL_CREATED ({EventType.CHANNEL_CREATED})")
         self.event_bus.subscribe(EventType.CHANNEL_CREATED, self._handle_channel_event)
 
-        logger.debug(f"[WebSocketEventBridge] Subscribing self._handle_channel_event to EventType.CHANNEL_UPDATED ({EventType.CHANNEL_UPDATED.value})")
+        logger.info(f"[WebSocketEventBridge._setup_event_subscriptions] Attempting to subscribe self._handle_channel_event to EventType.CHANNEL_UPDATED ({EventType.CHANNEL_UPDATED})")
         self.event_bus.subscribe(EventType.CHANNEL_UPDATED, self._handle_channel_event)
         self.event_bus.subscribe(EventType.CHANNEL_DELETED, self._handle_channel_event)
         self.event_bus.subscribe(EventType.CHANNEL_MEMBER_ADDED, self._handle_channel_event)
@@ -102,18 +102,15 @@ class WebSocketEventBridge:
 
     async def _handle_channel_message(self, event: Event):
         """Handle channel message events"""
-        logger.debug(f"WebSocketEventBridge received CHANNEL_MESSAGE from EventBus. Data: {event.data}, Metadata: {event.metadata}") # Added log
-
         channel_id = event.data.get("channel_id")
         if not channel_id:
-            logger.warning("CHANNEL_MESSAGE received by WebSocketEventBridge without channel_id. Discarding.")
             return
         
         # Get subscribed clients for this channel
         subscribers = self.channel_subscriptions.get(channel_id, set())
         
         if not subscribers:
-            logger.debug(f"No WebSocket subscribers for channel {channel_id} to relay CHANNEL_MESSAGE.")
+            logger.debug(f"No WebSocket subscribers for channel {channel_id}")
             return
         
         # Format message for WebSocket (matching frontend Message interface)
@@ -151,10 +148,9 @@ class WebSocketEventBridge:
         
         # Emit to all subscribers
         for sid in subscribers:
-            logger.debug(f"WebSocketEventBridge emitting 'message_sent' to SID {sid} for channel {channel_id}. Payload: {ws_message}") # Added log
             await self.sio.emit("message_sent", ws_message, to=sid)
         
-        logger.info(f"Broadcast CHANNEL_MESSAGE (as 'message_sent') to {len(subscribers)} client(s) for channel {channel_id}") # Changed log level for successful broadcast
+        logger.debug(f"Broadcast message to {len(subscribers)} clients for channel {channel_id}")
     
     async def _handle_channel_event(self, event: Event):
         """Handle non-message channel events"""

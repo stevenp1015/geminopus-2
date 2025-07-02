@@ -22,7 +22,7 @@ const ChatInterface = () => {
   
   const selectedChannel = selectedChannelId ? channels[selectedChannelId] : null
 
-  // --- BEGIN LOGGING FOR Step 1A.4 ---
+  // --- BEGIN LOGGING FOR Step 1A.4 / Step 4 (Re-Verification) ---
   console.log('[ChatInterface] Rendering. SelectedChannelId:', selectedChannelId);
   // console.log('[ChatInterface] Full chatStoreMessages object:', JSON.parse(JSON.stringify(chatStoreMessages))); // Can be very verbose
 
@@ -31,7 +31,7 @@ const ChatInterface = () => {
     : []
   
   console.log(`[ChatInterface] Derived channelMessages for channel ${selectedChannelId}:`, JSON.parse(JSON.stringify(channelMessages)));
-  // --- END LOGGING FOR Step 1A.4 ---
+  // --- END LOGGING FOR Step 1A.4 / Step 4 (Re-Verification) ---
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

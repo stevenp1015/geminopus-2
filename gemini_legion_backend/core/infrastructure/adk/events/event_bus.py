@@ -121,10 +121,12 @@ class GeminiEventBus:
                 self._event_history = self._event_history[-self._history_limit:]
         
         # Log the event
-        logger.debug(f"Event emitted: {event_type.value} from {source}")
+        logger.debug(f"[EventBus.emit] Event created: ID={event.id}, Type={event.type.value}, Source={event.source}, DataKeys={list(event.data.keys())}")
         
         # Notify subscribers
+        logger.debug(f"[EventBus.emit] About to call _notify_subscribers for event ID {event.id}, type {event.type.value}")
         await self._notify_subscribers(event)
+        logger.debug(f"[EventBus.emit] Returned from _notify_subscribers for event ID {event.id}, type {event.type.value}")
         
         return event
     
@@ -145,33 +147,75 @@ class GeminiEventBus:
             "timestamp": datetime.now().isoformat()
         }
         
-        event = ChannelMessageEvent(
+        logger.debug(f"[EventBus.emit_channel_message] Entered. channel_id='{channel_id}', sender_id='{sender_id}', content='{content[:50]}...', source='{source}'")
+
+        # Generate a proper unique message ID
+        message_id = f"msg_{uuid.uuid4()}"
+
+        data = {
+            "message_id": message_id,
+            "channel_id": channel_id,
+            "sender_id": sender_id,
+            "content": content,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # This creates an Event with type=EventType.CHANNEL_MESSAGE
+        event = ChannelMessageEvent( # This correctly sets event.type to EventType.CHANNEL_MESSAGE
             source=source,
-            data=data,
+            data=data, # This data is passed to the generic Event constructor if ChannelMessageEvent doesn't override init fully
             metadata=metadata or {}
         )
+        logger.debug(f"[EventBus.emit_channel_message] Created ChannelMessageEvent: ID={event.id}, Type={event.type.value}, Source={event.source}, DataKeys={list(event.data.keys())}")
+
+        # Use regular emit. Critically, ensure the event object itself (which has the correct type)
+        # is used by emit, or that emit correctly uses EventType.CHANNEL_MESSAGE.
+        # The original code was: return await self.emit(EventType.CHANNEL_MESSAGE, data, source, metadata)
+        # This creates a *new* generic Event inside self.emit using EventType.CHANNEL_MESSAGE and the *original data dict*.
+        # Let's ensure that the specialized ChannelMessageEvent object's data is what's used, or that the type is explicitly passed.
+        # The current self.emit takes event_type, data, source, metadata.
+        # The ChannelMessageEvent object already has all this.
+        # The original implementation of this method was correct: it calls self.emit with EventType.CHANNEL_MESSAGE and the data.
         
-        # Use regular emit
+        logger.debug(f"[EventBus.emit_channel_message] About to call self.emit with EventType.CHANNEL_MESSAGE, source='{source}', data='{str(data)[:100]}...'")
+        # The data passed to self.emit needs to be the data dict, not the event object itself, as per self.emit's signature.
+        # The event object `event` created above is of type ChannelMessageEvent.
+        # The `self.emit` method will create its own `Event` object.
+        # The critical part is that `event_type=EventType.CHANNEL_MESSAGE` is passed to `self.emit`.
         return await self.emit(EventType.CHANNEL_MESSAGE, data, source, metadata)
-    
+
     def subscribe(self, event_type: EventType, handler: Callable[[Event], Any]) -> str:
         """
         Subscribe to an event type.
         
         Returns subscription ID for later unsubscribe.
         """
+        if not isinstance(event_type, EventType):
+            logger.error(f"[EventBus.subscribe] Attempted to subscribe with non-EventType key: {event_type} (type: {type(event_type)}) for handler {handler}. This WILL FAIL.")
+            # Optionally, raise an error or try to convert, but logging is key for diagnosis.
+            # For now, let it proceed to see if it pollutes keys or fails silently.
+
         if event_type not in self._subscribers:
             self._subscribers[event_type] = []
         
         self._subscribers[event_type].append(handler)
         sub_id = f"sub_{event_type.value}_{len(self._subscribers[event_type])}"
         
-        handler_name = handler.__qualname__ if hasattr(handler, '__qualname__') else str(handler)
-        logger.info(f"[EventBus] Subscriber {handler_name} ADDED for event {event_type.value}. Current subscribers for this event type: {len(self._subscribers[event_type])}. ID: {sub_id}")
+        handler_name = "unknown_handler"
+        try:
+            handler_name = handler.__qualname__ if hasattr(handler, '__qualname__') else str(handler)
+        except: pass
 
-        # Log all handlers for this event type after adding
-        current_handlers_for_event_type = [ (h.__qualname__ if hasattr(h, '__qualname__') else str(h)) for h in self._subscribers[event_type] ]
-        logger.debug(f"[EventBus] Full list of subscribers for {event_type.value} after adding {handler_name}: {current_handlers_for_event_type}")
+        logger.info(f"[EventBus.subscribe] Subscriber {handler_name} ADDED for event type enum member {event_type} (value: {event_type.value}). Current subscribers for this event type: {len(self._subscribers[event_type])}. ID: {sub_id}")
+
+        current_handlers_for_event_type_repr = []
+        if event_type in self._subscribers:
+            for h_item in self._subscribers[event_type]:
+                try:
+                    current_handlers_for_event_type_repr.append(h_item.__qualname__ if hasattr(h_item, '__qualname__') else str(h_item))
+                except:
+                    current_handlers_for_event_type_repr.append(str(h_item))
+        logger.debug(f"[EventBus.subscribe] Full list of subscribers for {event_type} (value: {event_type.value}) after adding {handler_name}: {current_handlers_for_event_type_repr}")
 
         return sub_id
     
@@ -184,9 +228,8 @@ class GeminiEventBus:
     
     async def _notify_subscribers(self, event: Event):
         """Notify all subscribers of an event"""
-        logger.debug(f"[EventBus] _notify_subscribers called for event type: {event.type.value if hasattr(event.type, 'value') else event.type}")
+        logger.debug(f"[EventBus._notify_subscribers] Called for event type: {event.type.value if hasattr(event.type, 'value') else event.type}, event_id: {event.id}")
 
-        # Log all registered subscribers for this specific event type for detailed debugging
         subscribers_for_type = self._subscribers.get(event.type, [])
         if subscribers_for_type:
             handler_reprs = []
@@ -194,16 +237,16 @@ class GeminiEventBus:
                 try:
                     handler_reprs.append(f"{h.__qualname__ if hasattr(h, '__qualname__') else str(h)}")
                 except:
-                    handler_reprs.append(str(h)) # Fallback if qualname access fails
-            logger.debug(f"[EventBus] Subscribers found for {event.type.value}: {handler_reprs}")
+                    handler_reprs.append(str(h)) # Fallback
+            logger.debug(f"[EventBus._notify_subscribers] Subscribers found for {event.type.value}: {handler_reprs}")
         else:
-            logger.warning(f"[EventBus] No subscribers found for event type: {event.type.value}")
+            logger.warning(f"[EventBus._notify_subscribers] No subscribers found for event type: {event.type.value}")
             return
 
         handlers = subscribers_for_type # Use the already fetched list
         
-        if not handlers: # Double check, though covered by above warning
-            logger.debug(f"No subscribers for {event.type.value} (second check, should not happen if first warning didn't fire)")
+        if not handlers: # Double check
+            logger.debug(f"[EventBus._notify_subscribers] No subscribers for {event.type.value} (second check).")
             return
         
         # Execute all handlers concurrently
@@ -213,18 +256,17 @@ class GeminiEventBus:
             try:
                 handler_name = handler.__qualname__ if hasattr(handler, '__qualname__') else str(handler)
             except:
-                pass # Keep default
+                pass
 
-            logger.debug(f"[EventBus] Attempting to call handler #{i+1} for {event.type.value}: {handler_name}")
+            logger.debug(f"[EventBus._notify_subscribers] Attempting to call handler #{i+1} for {event.type.value}: {handler_name}")
             if asyncio.iscoroutinefunction(handler):
                 tasks.append(handler(event))
             else:
-                # Wrap sync handlers
-                logger.debug(f"[EventBus] Handler {handler_name} is synchronous, wrapping with to_thread.")
+                logger.debug(f"[EventBus._notify_subscribers] Handler {handler_name} is synchronous, wrapping with to_thread.")
                 tasks.append(asyncio.create_task(asyncio.to_thread(handler, event)))
         
         if tasks:
-            logger.debug(f"[EventBus] Awaiting {len(tasks)} handlers for event {event.type.value}")
+            logger.debug(f"[EventBus._notify_subscribers] Awaiting {len(tasks)} handlers for event {event.type.value}")
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             # Log any errors

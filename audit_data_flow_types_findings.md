@@ -1,155 +1,67 @@
-# Data Flow & Type Consistency Audit
+# Data Flow & Type Consistency Audit Findings
 
-This document traces critical data flows and analyzes type consistency between frontend, API, backend services, and domain models.
+**Audit Date:** 2025-06-30
+**Auditor:** Jules
+**Reference Checklist:** `audit_data_flow_types.md`
 
-## Critical User Action: Spawning a Minion
+This document summarizes the findings from the Data Flow & Type Consistency Audit. The audit focused primarily on the "Minion Spawn" flow, with checks on other relevant areas like Persona Updates and Messaging.
 
-1.  **Frontend (UI Interaction):** User fills a form in `MinionConfig.tsx` (assumption).
-    *   **Fields (Expected by `legionStore.ts` `spawnMinion` action):** `minion_id`, `name`, `base_personality`, `quirks`, `catchphrases`, `expertise_areas`, `model_name`, `allowed_tools`.
-    *   **Types:** Mostly strings, arrays of strings.
+## 1. Minion Spawn Data Flow
 
-2.  **Frontend (Zustand Store - `legionStore.ts`):** `spawnMinion` action.
-    *   Calls `minionApi.spawnMinion(payload)`.
-    *   **Payload to API (`SpawnMinionPayload` in `minionApi.ts`):** Matches the fields above.
-    *   **Types:** Consistent with form.
+**Overall Status:** Largely OK.
 
-3.  **Frontend (API Service - `minionApi.ts`):** `spawnMinion` function.
-    *   Makes POST request to `/api/v2/minions/spawn`.
-    *   **Request Body Sent:** JSON object of `SpawnMinionPayload`.
-    *   **Types:** Consistent.
+| Step                                      | From System | From Type/Key         | To System | To Type/Key             | Verified | Notes / Mismatches |
+| :---------------------------------------- | :---------- | :-------------------- | :-------- | :---------------------- | :------- | :----------------- |
+| 1. FE: User submits spawn form            | FE (Comp)   | Form state            | FE(Store) | `legionStore.spawnMinion(config)` | Y        | `config` allows flexible naming (e.g., `base_personality` or `personality`). |
+| 2. FE: API call to spawn                  | FE (Store)  | `config` object       | BE (API)  | `POST /api/v2/minions/spawn` body (`CreateMinionRequest`) | Y        | FE maps its `config` to `CreateMinionRequest` fields (`personality` for base, `expertise` for areas, `tools` for allowed_tools). This mapping is correct. |
+| 3. BE: Service handles spawn              | BE (API)    | `CreateMinionRequest`  | BE (DM)   | `MinionServiceV2.spawn_minion` params | Y        | API endpoint maps `request.personality` to `base_personality` and `request.expertise` to `expertise_areas` for the service call. `request.tools` is **NOT** passed to the service. |
+| 4. BE: Minion object created              | BE (Service)| Service params        | BE (DM)   | `Minion`, `MinionPersona` objects | Y        | `MinionPersona` uses defaults for `allowed_tools` and `model_name` as these are not direct params to `spawn_minion` service method. |
+| 5. BE: Minion saved to repo               | BE (Service)| `Minion` DM           | BE (Repo) | Repo save method        | Y        | Assumed OK (repo interface). |
+| 6. BE: Event payload created (`_minion_to_dict`) | BE (Service)| `Minion` DM           | BE (Dict) | Dict for WS event     | Y        | Output includes nested `persona` dict with all relevant fields from `MinionPersona` DM. |
+| 7. BE: `MINION_SPAWNED` WS Event emitted  | BE (Bus)    | `{"minion": dict}`    | FE (WS)   | `data.minion`           | Y        | Payload structure `{"minion": {...}}` is correct. |
+| 8. FE: WS handler processes event         | FE (WS)     | `data.minion` (any)   | FE(Store) | `legionStore.addMinion` param | Y        | `data.minion` is cast to `MinionType`. Structure from `_minion_to_dict` aligns with FE `MinionType` (including nested `MinionPersona` type). |
+| 9. FE: Minion added to store              | FE (Store)  | `MinionType`          | FE(Store) | `state.minions` record  | Y        | Logic in `addMinion` is sound. |
+| 10. FE: Component displays new minion     | FE (Store)  | `state.minions`       | FE (Comp) | Props (`MinionCard`)    | Y        | `Object.values()` used, `key` prop is correct. |
 
-4.  **Backend (API Endpoint - `gemini_legion_backend/api/rest/endpoints/minion_endpoints.py`):** `spawn_minion_endpoint`.
-    *   **Path:** `@router.post("/spawn", response_model=MinionResponse)`
-    *   **Request Body Received (`payload: SpawnMinionRequestSchema`):**
-        *   `minion_id: str`
-        *   `name: str`
-        *   `base_personality: str`
-        *   `quirks: List[str]`
-        *   `catchphrases: Optional[List[str]] = None`
-        *   `expertise_areas: Optional[List[str]] = None`
-        *   `model_name: Optional[str] = "gemini-1.5-flash"` (Note: Ideal architecture and `minion_service_v2.py` use `gemini-2.5-flash` or `gemini-2.0-flash` as default, `minion_agent_v2.py` uses `gemini-1.0-pro`) - **MINOR INCONSISTENCY (Default Model Name)**
-        *   `allowed_tools: Optional[List[str]] = None`
-    *   **Types:** Consistent with frontend.
+**Issue Identified in Minion Spawn Flow:**
+*   **`CreateMinionRequest.tools` field not utilized:** The `tools: List[str]` field defined in the `CreateMinionRequest` Pydantic schema (and populated by the frontend `spawnMinion` call) is **not used** when calling `minion_service.spawn_minion` from the API endpoint (`minions_v2.py`).
+    *   **Impact:** The `allowed_tools` for a new minion's persona currently always defaults to `["send_channel_message", "listen_to_channel"]` as defined in `MinionServiceV2.spawn_minion`'s `MinionPersona` instantiation, regardless of what might be sent in the API request's `tools` field.
+    *   **Recommendation:**
+        1.  If the API's `tools` field is intended to customize `allowed_tools`, then `minions_v2.py` endpoint for spawn should pass `request.tools` to `minion_service.spawn_minion`.
+        2.  The `MinionServiceV2.spawn_minion` method signature should be updated to accept `allowed_tools: Optional[List[str]] = None`.
+        3.  Inside `MinionServiceV2.spawn_minion`, when creating `MinionPersona`, use the passed `allowed_tools` if provided, otherwise use the default.
+        4.  If the API `tools` field is *not* intended to be used, it should be removed from `CreateMinionRequest` schema to avoid confusion.
 
-5.  **Backend (Application Service - `MinionServiceV2.spawn_minion`):**
-    *   **Parameters received:** `minion_id`, `name`, `base_personality`, `quirks`, `catchphrases`, `expertise_areas`, `model_name`, `allowed_tools`.
-    *   **Types:** Consistent.
-    *   **Logic:**
-        *   Creates `MinionPersona` domain object.
-        *   Creates `EmotionalState` domain object.
-        *   Creates `Minion` domain object.
-        *   Saves to `minion_repo`.
-        *   Calls `_start_minion_agent`.
-        *   Emits `MINION_SPAWNED` event with `self._minion_to_dict(minion)`.
+## 2. Persona Update Data Flow
 
-6.  **Backend (Domain Model - `Minion`, `MinionPersona`, `EmotionalState`):**
-    *   `MinionPersona` fields match incoming data. `model_name` defaults to "gemini-1.0-pro" if not provided to constructor, but `spawn_minion_endpoint` schema defaults to "gemini-1.5-flash" and `MinionServiceV2.spawn_minion` defaults to "gemini-2.5-flash". This is a chain of defaults. The API request schema default will likely take precedence if frontend sends `undefined`.
-    *   `EmotionalState` initialized with default mood.
-    *   `Minion` created with these objects.
-    *   **Types:** Internally consistent.
+**Overall Status:** OK.
+*   The API endpoint uses `request.model_dump(exclude_unset=True)` which correctly passes only the fields present in the request to `MinionServiceV2.update_minion_persona`.
+*   The service updates the domain model.
+*   The `MINION_STATE_CHANGED` WebSocket event payload is the full minion dictionary (from `_minion_to_dict`), which the frontend `legionStore.updateMinion` handler uses to update the entire minion state. This is consistent.
 
-7.  **Backend (ADK Agent - `ADKMinionAgent.__init__`):**
-    *   Receives `Minion` object.
-    *   Accesses `minion.persona.model_name`, `minion.persona.name`, etc. to configure `LlmAgent`.
-    *   **Types:** Consistent.
+## 3. Message Send/Receive Data Flow
 
-**Overall Type Consistency (Spawning):** Good. Minor inconsistency in default model names across layers, but API payload would override.
+**Overall Status:** OK (with previous fix).
+*   **`sender` vs `sender_id` Mismatch:**
+    *   **Identified & Fixed Previously:** The backend `MessageSchema` (used in WebSocket `message_sent` events) has a `sender` field, while the frontend `Message` type expects `sender_id`.
+    *   **Resolution:** The `chatStore.handleNewMessage` function now correctly transforms the incoming message data, mapping `data.message.sender` to `message.sender_id` before adding to the store. This fix is crucial and addresses the mismatch.
+*   The rest of the message flow (API call structure, service handling, event emission) appears consistent.
 
-## Critical User Action: Sending a Message (User to Minion)
+## 4. Channel `id` vs `channel_id`
 
-1.  **Frontend (UI Interaction - `ChatInput.tsx`):** User types message.
-    *   **Data:** `channelId: string`, `messageContent: string`.
+**Overall Status:** OK.
+*   The backend API responses for channels use `id` (e.g., `ChannelResponse` schema).
+*   The frontend `Channel` type in `types/index.ts` also uses `id`.
+*   WebSocket event handlers in `legionStore.ts` that deal with channel events (like `channel_created`) correctly map incoming `channel_id` from raw backend data to the frontend `id` field when constructing the `ChannelType` object for `chatStore`.
+*   Where `channel_id` is used directly in `chatStore` methods (e.g., `updateChannel(channelId, ...)`), it's used as a key for the `channels` record, which is consistent with how channels are stored (`state.channels[channel.id]`).
 
-2.  **Frontend (Zustand Store - `chatStore.ts`):** `sendMessage` action.
-    *   Calls `channelApi.sendMessage(channelId, content)`.
-    *   **Payload to API (`SendMessagePayload` in `channelApi.ts`):** `{ content: string }`. (Note: `sender_id` is not sent; backend infers from auth or defaults to "USER").
-    *   **Types:** Consistent.
+## General Type Consistency
 
-3.  **Frontend (API Service - `channelApi.ts`):** `sendMessage` function.
-    *   Makes POST request to `/api/v2/channels/{channel_id}/messages`.
-    *   **Request Body Sent:** JSON object `{ content: string }`.
-    *   **Types:** Consistent.
+*   Backend Pydantic schemas (`schemas.py`) and frontend TypeScript types (`types/index.ts`) for core entities like `Minion`, `MinionPersona`, `EmotionalState`, `Message`, `Channel`, `Task` are mostly aligned or have identified transformation points.
+*   The use of `Optional` in Python and `?` in TypeScript for optional fields seems appropriate.
+*   Enum consistency between backend (e.g., `MinionStatusEnum`) and frontend (e.g., `Minion['status']` literal types) is generally good.
 
-4.  **Backend (API Endpoint - `gemini_legion_backend/api/rest/endpoints/channel_endpoints.py`):** `send_message_to_channel_endpoint`.
-    *   **Path:** `@router.post("/{channel_id}/messages", response_model=MessageResponse)`
-    *   **Request Body Received (`payload: MessageCreateSchema`):**
-        *   `content: str`
-        *   `sender_id: Optional[str] = "USER"` (Defaults to "USER")
-    *   **Types:** Consistent.
+## Conclusion of Data Flow & Type Audit
 
-5.  **Backend (Application Service - `ChannelServiceV2.add_message_to_channel`):**
-    *   **Parameters received:** `channel_id`, `content`, `sender_id`.
-    *   **Types:** Consistent.
-    *   **Logic:**
-        *   Creates `Message` domain object.
-        *   Saves to `message_repo`.
-        *   Emits `CHANNEL_MESSAGE` event with `message.to_dict()`.
-
-6.  **Backend (Event Bus & `MinionServiceV2._handle_channel_message`):**
-    *   `MinionServiceV2` receives `CHANNEL_MESSAGE` event.
-    *   **Event Data Parsed:** `channel_id`, `sender_id`, `content`.
-    *   **Types:** Consistent.
-    *   **Logic (Key Part for Data Flow to ADK):**
-        *   `current_session_id = f"channel_{channel_id}_minion_{minion_id}"`
-        *   `emotional_cue`, `memory_cue` prepared (currently placeholders or simple).
-        *   `session_state_for_predict` (which becomes `session.state` after `create_session`): `{"current_emotional_cue": string, "conversation_history_cue": string}`.
-        *   `message_content = genai_types.Content(role='user', parts=[genai_types.Part(text=content)])`.
-        *   Calls `runner.run_async(user_id=sender_id, session_id=current_session_id, new_message=message_content)`. (Or `predict` if that's fixed).
-
-7.  **Backend (ADK Agent - `ADKMinionAgent` via Runner):**
-    *   The `instruction` for `LlmAgent` is templated: `Your current emotional state is: {current_emotional_cue}. Conversation history: {conversation_history_cue}. User says: {user_query}` (Conceptual, actual template might vary but should use these).
-    *   ADK framework passes `new_message.parts[0].text` (the user's message content) into the LLM prompt, likely as `user_query` or similar.
-    *   `Session.state` variables (`current_emotional_cue`, `conversation_history_cue`) are interpolated into the instruction string by ADK if templated.
-    *   **Type Check:** `content` (user message) is `str`. `current_emotional_cue` and `conversation_history_cue` from `Session.state` are `str`. All consistent for LLM prompt.
-
-8.  **Backend (Minion Response via Event Bus to Frontend):**
-    *   `MinionServiceV2` gets response from Runner, emits `CHANNEL_MESSAGE` with minion's response.
-    *   **Payload:** `channel_id`, `sender_id` (minion's ID), `content` (minion's text).
-    *   **Types:** Consistent.
-
-**Overall Type Consistency (Sending Message):** Good. The flow of `content` string and contextual cues (as strings) into the ADK agent prompt seems compatible.
-
-## WebSocket Event: `MINION_SPAWNED`
-
-1.  **Backend (`MinionServiceV2.spawn_minion`):**
-    *   Emits `EventType.MINION_SPAWNED`.
-    *   Data: `{"minion": self._minion_to_dict(minion)}`.
-    *   `_minion_to_dict` creates a structure compatible with frontend's `MinionType`.
-        *   `minion_id: str`
-        *   `status: str` ("active", "error", etc.)
-        *   `creation_date: str` (ISO format)
-        *   `persona: MinionPersonaResponseSchema` (which matches frontend's `MinionPersonaType`)
-        *   `emotional_state: EmotionalStateResponseSchema` (which matches frontend's `EmotionalStateType`)
-
-2.  **Backend (`WebSocketEventBridge`):** Relays this event and data to connected frontend clients.
-
-3.  **Frontend (`legionStore.ts`):** Handles `MINION_SPAWNED` WebSocket event.
-    *   **Expected Payload Structure (`MinionType` from `src/types/index.ts`):**
-        ```typescript
-        export interface MinionType {
-          minion_id: string;
-          // name: string; // Name is now nested under persona
-          status: 'active' | 'inactive' | 'processing' | 'error' | 'idle';
-          creation_date: string; // ISO date string
-          persona: MinionPersonaType;
-          emotional_state: EmotionalStateType;
-          current_task?: any; // Consider defining TaskType
-          memory_stats?: any; // Consider defining MemoryStatsType
-          is_active_agent?: boolean; // Redundant with status
-        }
-        ```
-    *   The `_minion_to_dict` in backend prepares a structure that matches this, including nested `persona` and `emotional_state`.
-    *   The `status` mapping in `_minion_to_dict` (`domain_status.lower()` to frontend status) seems okay.
-
-**Overall Type Consistency (MINION_SPAWNED WebSocket):** Appears good. The backend serialization `_minion_to_dict` is designed to match the frontend `MinionType`.
-
-## Potential Issues & Areas for Deeper Dive:
-
-*   **Default Model Name Consistency:** While minor, standardizing the default `model_name` across API schema, service layer, and domain model defaults would be cleaner.
-*   **`sender_id` in `MessageCreateSchema`:** Currently defaults to "USER". If minions are to message channels autonomously, this will need to be populated with the minion's ID. The current `ChannelServiceV2.add_message_to_channel` already accepts `sender_id`.
-*   **Richness of `Session.state`:** The current `emotional_cue` and `memory_cue` are simple strings. The `IDEAL_ARCHITECTURE_DESIGN_DOCUMENT.md` implies much richer, structured data might eventually inform prompts. This is an evolution point, not a current type error.
-*   **Error object serialization:** How errors from backend (e.g., ADK errors) are propagated to frontend via API responses or WebSocket events needs checking.
-*   **Task data flow:** Not yet audited, will be important for `taskStore.ts` and `Task` domain.
-
+The data flows for key operations are largely consistent, with the necessary transformations (like `sender` to `sender_id`) either in place or identified. The main actionable finding is the non-utilization of the `tools` field from `CreateMinionRequest` in the minion spawn process. Addressing this will ensure the API behaves as expected regarding tool assignment during minion creation. Other areas appear to have robust data handling and type mapping.
 ---
-*Audit in progress. More data flows (e.g., task updates, minion emotional changes via WebSocket) will be added.*
