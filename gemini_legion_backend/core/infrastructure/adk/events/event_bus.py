@@ -166,7 +166,13 @@ class GeminiEventBus:
         self._subscribers[event_type].append(handler)
         sub_id = f"sub_{event_type.value}_{len(self._subscribers[event_type])}"
         
-        logger.info(f"Subscriber added for {event_type.value}: {sub_id}")
+        handler_name = handler.__qualname__ if hasattr(handler, '__qualname__') else str(handler)
+        logger.info(f"[EventBus] Subscriber {handler_name} ADDED for event {event_type.value}. Current subscribers for this event type: {len(self._subscribers[event_type])}. ID: {sub_id}")
+
+        # Log all handlers for this event type after adding
+        current_handlers_for_event_type = [ (h.__qualname__ if hasattr(h, '__qualname__') else str(h)) for h in self._subscribers[event_type] ]
+        logger.debug(f"[EventBus] Full list of subscribers for {event_type.value} after adding {handler_name}: {current_handlers_for_event_type}")
+
         return sub_id
     
     def subscribe_all(self, handler: Callable[[Event], Any]) -> List[str]:
@@ -178,22 +184,47 @@ class GeminiEventBus:
     
     async def _notify_subscribers(self, event: Event):
         """Notify all subscribers of an event"""
-        handlers = self._subscribers.get(event.type, [])
+        logger.debug(f"[EventBus] _notify_subscribers called for event type: {event.type.value if hasattr(event.type, 'value') else event.type}")
+
+        # Log all registered subscribers for this specific event type for detailed debugging
+        subscribers_for_type = self._subscribers.get(event.type, [])
+        if subscribers_for_type:
+            handler_reprs = []
+            for h in subscribers_for_type:
+                try:
+                    handler_reprs.append(f"{h.__qualname__ if hasattr(h, '__qualname__') else str(h)}")
+                except:
+                    handler_reprs.append(str(h)) # Fallback if qualname access fails
+            logger.debug(f"[EventBus] Subscribers found for {event.type.value}: {handler_reprs}")
+        else:
+            logger.warning(f"[EventBus] No subscribers found for event type: {event.type.value}")
+            return
+
+        handlers = subscribers_for_type # Use the already fetched list
         
-        if not handlers:
-            logger.debug(f"No subscribers for {event.type.value}")
+        if not handlers: # Double check, though covered by above warning
+            logger.debug(f"No subscribers for {event.type.value} (second check, should not happen if first warning didn't fire)")
             return
         
         # Execute all handlers concurrently
         tasks = []
-        for handler in handlers:
+        for i, handler in enumerate(handlers):
+            handler_name = "unknown_handler"
+            try:
+                handler_name = handler.__qualname__ if hasattr(handler, '__qualname__') else str(handler)
+            except:
+                pass # Keep default
+
+            logger.debug(f"[EventBus] Attempting to call handler #{i+1} for {event.type.value}: {handler_name}")
             if asyncio.iscoroutinefunction(handler):
                 tasks.append(handler(event))
             else:
                 # Wrap sync handlers
+                logger.debug(f"[EventBus] Handler {handler_name} is synchronous, wrapping with to_thread.")
                 tasks.append(asyncio.create_task(asyncio.to_thread(handler, event)))
         
         if tasks:
+            logger.debug(f"[EventBus] Awaiting {len(tasks)} handlers for event {event.type.value}")
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             # Log any errors

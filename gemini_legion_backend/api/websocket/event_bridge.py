@@ -49,8 +49,13 @@ class WebSocketEventBridge:
     def _setup_event_subscriptions(self):
         """Subscribe to events that should be forwarded to WebSocket"""
         # Channel events
+        logger.debug(f"[WebSocketEventBridge] Subscribing self._handle_channel_message ({self._handle_channel_message.__qualname__ if hasattr(self._handle_channel_message, '__qualname__') else str(self._handle_channel_message)}) to EventType.CHANNEL_MESSAGE ({EventType.CHANNEL_MESSAGE.value})")
         self.event_bus.subscribe(EventType.CHANNEL_MESSAGE, self._handle_channel_message)
+
+        logger.debug(f"[WebSocketEventBridge] Subscribing self._handle_channel_event to EventType.CHANNEL_CREATED ({EventType.CHANNEL_CREATED.value})")
         self.event_bus.subscribe(EventType.CHANNEL_CREATED, self._handle_channel_event)
+
+        logger.debug(f"[WebSocketEventBridge] Subscribing self._handle_channel_event to EventType.CHANNEL_UPDATED ({EventType.CHANNEL_UPDATED.value})")
         self.event_bus.subscribe(EventType.CHANNEL_UPDATED, self._handle_channel_event)
         self.event_bus.subscribe(EventType.CHANNEL_DELETED, self._handle_channel_event)
         self.event_bus.subscribe(EventType.CHANNEL_MEMBER_ADDED, self._handle_channel_event)
