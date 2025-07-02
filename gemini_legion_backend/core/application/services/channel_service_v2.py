@@ -232,20 +232,25 @@ class ChannelServiceV2:
         channel.message_count += 1
         
         # SINGLE EVENT EMISSION - This is THE way
-        await self.event_bus.emit_channel_message(
-            channel_id=channel_id,
-            sender_id=sender_id,
-            content=content,
-            source=f"channel_service:{sender_id}",
-            metadata={
-                "message_id": message.message_id,
-                "message_type": message_type,
-                "parent_message_id": parent_message_id,
-                **(metadata or {})
-            }
-        )
+        logger.info(f"[ChannelServiceV2] BEFORE emitting user {sender_id}'s message to bus for channel {channel_id}.")
+        try:
+            await self.event_bus.emit_channel_message(
+                channel_id=channel_id, # Was message.channel_id, but channel_id is direct param
+                sender_id=sender_id,   # Was message.sender_id, but sender_id is direct param
+                content=content,       # Was message.content, but content is direct param
+                source=f"channel_service:{sender_id}", # Original source
+                metadata={
+                    "message_id": message.message_id, # Keep this from the created message object
+                    "message_type": message_type,
+                    "parent_message_id": parent_message_id,
+                    **(metadata or {})
+                }
+            )
+            logger.info(f"[ChannelServiceV2] AFTER emitting user {sender_id}'s message to bus for channel {channel_id}.")
+        except Exception as e_emit:
+            logger.error(f"[ChannelServiceV2] ERROR during emit_channel_message for user {sender_id}'s message: {e_emit}", exc_info=True)
         
-        logger.debug(f"Message sent to {channel_id} by {sender_id} via EVENT BUS")
+        # logger.debug(f"Message sent to {channel_id} by {sender_id} via EVENT BUS") # Original log, now covered by AFTER/ERROR
         
         return self._message_to_dict(message)
     

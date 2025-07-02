@@ -689,13 +689,18 @@ class MinionServiceV2:
                             )
 
                         # Send minion's response back to channel
-                        await self.event_bus.emit_channel_message(
-                            channel_id=channel_id,
-                            sender_id=minion_id,
-                            content=response_text,
-                            source=f"minion:{minion_id}"
-                        )
-                        logger.info(f"Minion {minion_id} responded to message in channel {channel_id}")
+                        logger.info(f"[MinionServiceV2] BEFORE emitting minion {minion_id}'s response for channel {channel_id}.")
+                        try:
+                            await self.event_bus.emit_channel_message(
+                                channel_id=channel_id,
+                                sender_id=minion_id,
+                                content=response_text,
+                                source=f"minion:{minion_id}"
+                            )
+                            logger.info(f"[MinionServiceV2] AFTER emitting minion {minion_id}'s response for channel {channel_id}.")
+                        except Exception as e_emit:
+                            logger.error(f"[MinionServiceV2] ERROR during emit_channel_message for minion {minion_id}'s response: {e_emit}", exc_info=True)
+                        # logger.info(f"Minion {minion_id} responded to message in channel {channel_id}") # Original log, now covered by AFTER/ERROR
                     else:
                         # This block now also catches cases where predict() failed and response_text is None
                         logger.warning(f"Minion {minion_id} generated no response or failed to predict for channel {channel_id} for message: '{content[:30]}...'")
