@@ -729,7 +729,8 @@ class MinionServiceV2:
                             content=response_text,
                             source=f"minion:{minion_id}"
                         )
-                        logger.info(f"Minion {minion_id} responded to message in channel {channel_id}")
+                        logger.info(f"Minion {minion_id} responded to message in channel {channel_id}. Emitting to event bus.")
+                        logger.debug(f"EVENT_BUS EMIT: CHANNEL_MESSAGE from MinionServiceV2 for minion_id='{minion_id}', channel_id='{channel_id}', content='{response_text[:100]}...'")
                     else:
                         # This block now also catches cases where predict() failed and response_text is None
                         logger.warning(f"Minion {minion_id} generated no response or failed to predict for channel {channel_id} for message: '{content[:30]}...'")

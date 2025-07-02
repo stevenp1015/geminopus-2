@@ -97,15 +97,18 @@ class WebSocketEventBridge:
 
     async def _handle_channel_message(self, event: Event):
         """Handle channel message events"""
+        logger.debug(f"WebSocketEventBridge received CHANNEL_MESSAGE from EventBus. Data: {event.data}, Metadata: {event.metadata}") # Added log
+
         channel_id = event.data.get("channel_id")
         if not channel_id:
+            logger.warning("CHANNEL_MESSAGE received by WebSocketEventBridge without channel_id. Discarding.")
             return
         
         # Get subscribed clients for this channel
         subscribers = self.channel_subscriptions.get(channel_id, set())
         
         if not subscribers:
-            logger.debug(f"No WebSocket subscribers for channel {channel_id}")
+            logger.debug(f"No WebSocket subscribers for channel {channel_id} to relay CHANNEL_MESSAGE.")
             return
         
         # Format message for WebSocket (matching frontend Message interface)
@@ -143,9 +146,10 @@ class WebSocketEventBridge:
         
         # Emit to all subscribers
         for sid in subscribers:
+            logger.debug(f"WebSocketEventBridge emitting 'message_sent' to SID {sid} for channel {channel_id}. Payload: {ws_message}") # Added log
             await self.sio.emit("message_sent", ws_message, to=sid)
         
-        logger.debug(f"Broadcast message to {len(subscribers)} clients for channel {channel_id}")
+        logger.info(f"Broadcast CHANNEL_MESSAGE (as 'message_sent') to {len(subscribers)} client(s) for channel {channel_id}") # Changed log level for successful broadcast
     
     async def _handle_channel_event(self, event: Event):
         """Handle non-message channel events"""

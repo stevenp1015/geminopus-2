@@ -11,6 +11,11 @@ interface MessageListProps {
 }
 
 const MessageList = ({ messages, minions, currentUserId }: MessageListProps) => {
+  // --- BEGIN LOGGING FOR Step 1A.4 ---
+  console.log('[MessageList] Rendering. Received messages prop:', JSON.parse(JSON.stringify(messages)));
+  console.log(`[MessageList] Number of messages received: ${messages.length}`);
+  // --- END LOGGING FOR Step 1A.4 ---
+
   const scrollRef = useRef<HTMLDivElement>(null)
   
   useEffect(() => {

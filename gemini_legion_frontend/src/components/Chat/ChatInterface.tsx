@@ -21,10 +21,18 @@ const ChatInterface = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const selectedChannel = selectedChannelId ? channels[selectedChannelId] : null
+
+  // --- BEGIN LOGGING FOR Step 1A.4 ---
+  console.log('[ChatInterface] Rendering. SelectedChannelId:', selectedChannelId);
+  // console.log('[ChatInterface] Full chatStoreMessages object:', JSON.parse(JSON.stringify(chatStoreMessages))); // Can be very verbose
+
   const channelMessages = selectedChannelId && chatStoreMessages[selectedChannelId]
     ? chatStoreMessages[selectedChannelId]
     : []
   
+  console.log(`[ChatInterface] Derived channelMessages for channel ${selectedChannelId}:`, JSON.parse(JSON.stringify(channelMessages)));
+  // --- END LOGGING FOR Step 1A.4 ---
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

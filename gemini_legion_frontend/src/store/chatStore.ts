@@ -262,6 +262,8 @@ export const useChatStore = create<ChatState>()(
       
       // Real-time update handlers
       handleNewMessage: (channelId: string, incomingMessageData: any) => {
+        console.log(`[ChatStore] handleNewMessage CALLED for channelId: ${channelId}. Raw incomingMessageData:`, JSON.parse(JSON.stringify(incomingMessageData)));
+
         // Transform incoming message data to frontend Message type
         const message: Message = {
           message_id: incomingMessageData.message_id,
@@ -274,13 +276,31 @@ export const useChatStore = create<ChatState>()(
           priority: incomingMessageData.priority,
           metadata: incomingMessageData.metadata,
         };
+        console.log(`[ChatStore] Transformed message object:`, JSON.parse(JSON.stringify(message)));
+
         // Basic validation
         if (!message.message_id || !message.channel_id || !message.sender_id || !message.content) {
             console.error("[ChatStore] handleNewMessage: Received message with missing critical fields after transformation.", incomingMessageData, message);
             toast.error("Received a corrupted chat message.");
             return;
         }
+
+        const currentState = get();
+        const messagesBefore = currentState.messages[channelId] ? JSON.parse(JSON.stringify(currentState.messages[channelId])) : '[]';
+        console.log(`[ChatStore] Messages for channel ${channelId} BEFORE addMessage:`, messagesBefore);
+
         get().addMessage(channelId, message);
+
+        const messagesAfter = get().messages[channelId] ? JSON.parse(JSON.stringify(get().messages[channelId])) : '[]';
+        console.log(`[ChatStore] Messages for channel ${channelId} AFTER addMessage:`, messagesAfter);
+
+        // Verify if the message was actually added
+        const lastMessageAfter = get().messages[channelId]?.[get().messages[channelId].length - 1];
+        if (lastMessageAfter?.message_id === message.message_id) {
+          console.log(`[ChatStore] SUCCESS: Message ${message.message_id} appears to be added to channel ${channelId}.`);
+        } else {
+          console.error(`[ChatStore] FAILURE: Message ${message.message_id} does NOT appear to be added to channel ${channelId}. Last message is:`, lastMessageAfter);
+        }
       },
       
       handleChannelUpdate: (channelId: string, updates: Partial<Channel>) => {
