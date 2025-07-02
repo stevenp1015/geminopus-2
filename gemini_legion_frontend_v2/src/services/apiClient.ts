@@ -8,40 +8,70 @@
 
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 
+// Define a more structured error type
+export interface ApiError {
+  status?: number;
+  message: string;
+  detail?: string; // From FastAPI HTTPExceptions
+  data?: any; // Original error data
+}
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: '/api/v2', // Default base URL for V2 API, proxy will handle routing
+  baseURL: '/api/v2',
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 15000, // Increased timeout slightly
 });
 
-// Optional: Request Interceptor (e.g., for adding auth tokens)
 apiClient.interceptors.request.use(
   (config) => {
-    // const token = localStorage.getItem('authToken');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
     return config;
   },
   (error: AxiosError) => {
     console.error('API Request Error Interceptor:', error);
-    return Promise.reject(error);
+    const customError: ApiError = {
+      message: error.message || 'A request error occurred',
+      status: error.response?.status,
+      data: error.config, // Or error itself
+    };
+    return Promise.reject(customError);
   }
 );
 
-// Optional: Response Interceptor (e.g., for global error handling)
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
-    // Handle specific error codes globally if needed
-    // if (error.response?.status === 401) {
-    //   // e.g., redirect to login
-    //   console.error('Unauthorized, redirecting to login...');
-    // }
-    console.error('API Response Error Interceptor:', error.response?.data || error.message);
-    return Promise.reject(error);
+    let apiError: ApiError;
+
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      const serverError = error.response.data as any; // Type assertion
+      apiError = {
+        message: serverError?.detail || error.message || 'An error occurred',
+        status: error.response.status,
+        detail: serverError?.detail, // FastAPI often puts detailed messages here
+        data: serverError,
+      };
+      console.error('API Response Error:', `Status: ${apiError.status}, Detail: ${apiError.detail || apiError.message}`, serverError);
+    } else if (error.request) {
+      // The request was made but no response was received
+      apiError = {
+        message: 'No response received from server. Check network connection or server status.',
+        data: error.request,
+      };
+      console.error('API No Response Error:', apiError.message);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      apiError = {
+        message: error.message || 'Error setting up API request',
+      };
+      console.error('API Request Setup Error:', apiError.message);
+    }
+
+    // Instead of just rejecting with error, reject with the structured ApiError
+    return Promise.reject(apiError);
   }
 );
 

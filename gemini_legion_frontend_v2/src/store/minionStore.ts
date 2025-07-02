@@ -6,21 +6,24 @@
 //     loadingMinions: boolean;
 //     loadingSelectedMinion: boolean;
 //     error: string | null;
+//     spawnSuccessMessage: string | null; // Added for success state reinforcement
 //   }
 //   Actions: {
 //     fetchMinions: () => Promise<void>;
 //     fetchMinionById: (minionId: string) => Promise<void>;
+//     spawnMinion: (data: CreateMinionRequest) => Promise<Minion | null>; // Returns spawned minion or null
+//     clearSpawnSuccessMessage: () => void; // Added
 //     setSelectedMinion: (minion: Minion | null) => void;
-//     addMinion: (minion: Minion) => void; // For WebSocket event: minion_spawned
-//     removeMinion: (minionId: string) => void; // For WebSocket event: minion_despawned
-//     updateMinion: (minion: Partial<Minion> & { minion_id: string }) => void; // For WebSocket event: minion_state_changed etc.
+//     addMinion: (minion: Minion) => void;
+//     removeMinion: (minionId: string) => void;
+//     updateMinion: (minion: Partial<Minion> & { minion_id: string }) => void;
 //   }
 // State_Management: Uses Zustand for managing the Minions' state.
 // Dependencies & Dependents: Imports Minion types from '~/types', minionApiService. Used by components displaying minion data.
 // V2_Compliance_Check: Confirmed.
 
 import { create } from 'zustand';
-import { Minion, MinionsListResponse } from '../types';
+import { Minion, MinionsListResponse, CreateMinionRequest } from '../types';
 import { minionApiService } from '../services/minionApiService';
 
 interface MinionState {
@@ -29,8 +32,13 @@ interface MinionState {
   loadingMinions: boolean;
   loadingSelectedMinion: boolean;
   error: string | null;
+  spawnSuccessMessage: string | null; // For success state reinforcement
+
   fetchMinions: () => Promise<void>;
   fetchMinionById: (minionId: string) => Promise<void>;
+  spawnMinion: (data: CreateMinionRequest) => Promise<Minion | null>; // Modified to return spawned minion or null
+  clearSpawnSuccessMessage: () => void; // Action to clear the message
+
   setSelectedMinion: (minion: Minion | null) => void;
   addMinion: (minion: Minion) => void;
   removeMinion: (minionId: string) => void;
@@ -43,6 +51,7 @@ export const useMinionStore = create<MinionState>((set, get) => ({
   loadingMinions: false,
   loadingSelectedMinion: false,
   error: null,
+  spawnSuccessMessage: null,
 
   fetchMinions: async () => {
     set({ loadingMinions: true, error: null });
@@ -57,7 +66,7 @@ export const useMinionStore = create<MinionState>((set, get) => ({
   },
 
   fetchMinionById: async (minionId: string) => {
-    set({ loadingSelectedMinion: true, error: null });
+    set({ loadingSelectedMinion: true, error: null, selectedMinion: null }); // Clear previous selected
     try {
       const minion = await minionApiService.getMinion(minionId);
       set({ selectedMinion: minion, loadingSelectedMinion: false });
@@ -68,11 +77,35 @@ export const useMinionStore = create<MinionState>((set, get) => ({
     }
   },
 
+  spawnMinion: async (data: CreateMinionRequest): Promise<Minion | null> => {
+    set({ loadingSelectedMinion: true, error: null, spawnSuccessMessage: null }); // Use loadingSelectedMinion for spawn op
+    try {
+      // V2 spawnMinion now returns the full MinionResponse
+      const spawnedMinion = await minionApiService.spawnMinion(data);
+      // No need to call addMinion here if WebSocket event minion_spawned is reliable
+      // If WebSocket is not guaranteed, uncomment:
+      // get().addMinion(spawnedMinion);
+      set({
+        loadingSelectedMinion: false,
+        spawnSuccessMessage: `Minion "${spawnedMinion.persona.name}" successfully spawned with ID: ${spawnedMinion.minion_id}!`
+      });
+      return spawnedMinion;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to spawn minion';
+      set({ error: errorMsg, loadingSelectedMinion: false });
+      console.error(errorMsg, err);
+      return null;
+    }
+  },
+
+  clearSpawnSuccessMessage: () => {
+    set({ spawnSuccessMessage: null });
+  },
+
   setSelectedMinion: (minion: Minion | null) => {
     set({ selectedMinion: minion });
   },
 
-  // Actions for WebSocket updates
   addMinion: (minion: Minion) => {
     set((state) => ({
       minions: [...state.minions.filter(m => m.minion_id !== minion.minion_id), minion],
@@ -92,13 +125,8 @@ export const useMinionStore = create<MinionState>((set, get) => ({
         m.minion_id === minionData.minion_id ? { ...m, ...minionData } : m
       ),
       selectedMinion: state.selectedMinion?.minion_id === minionData.minion_id
-        ? { ...state.selectedMinion, ...minionData } as Minion // Type assertion needed as selectedMinion can be null
+        ? { ...state.selectedMinion, ...minionData } as Minion
         : state.selectedMinion,
     }));
   },
 }));
-
-// Example usage (typically in a component):
-// const minions = useMinionStore((state) => state.minions);
-// const fetchMinions = useMinionStore((state) => state.fetchMinions);
-// useEffect(() => { fetchMinions(); }, [fetchMinions]);
