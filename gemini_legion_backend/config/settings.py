@@ -4,7 +4,8 @@ Configuration Management
 Handles all configuration for the Gemini Legion backend.
 """
 
-from pydantic import BaseSettings, Field
+from pydantic_settings import BaseSettings # Corrected import
+from pydantic import Field # Field remains in pydantic core
 from typing import Optional, List, Dict
 import os
 from pathlib import Path
