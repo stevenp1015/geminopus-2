@@ -123,12 +123,24 @@ export const useChatStore = create<ChatState>()(
       },
       
       // Message actions
-      addMessage: (channelId, message) => set((state) => ({
-        messages: {
-          ...state.messages,
-          [channelId]: [...(state.messages[channelId] || []), message]
-        }
-      })),
+      addMessage: (channelId, message) => {
+        console.log(`[ChatStore.addMessage] Attempting to add message ID ${message.message_id} to channel ${channelId}`);
+        set((state) => {
+          const currentMessages = state.messages[channelId] || [];
+          // Check if message with this ID already exists
+          if (currentMessages.some(m => m.message_id === message.message_id)) {
+            console.warn(`[ChatStore.addMessage] Message ID ${message.message_id} already exists in channel ${channelId}. Skipping add.`);
+            return {}; // Return empty object to signify no state change
+          }
+          console.log(`[ChatStore.addMessage] Message ID ${message.message_id} is new. Adding to channel ${channelId}.`);
+          return {
+            messages: {
+              ...state.messages,
+              [channelId]: [...currentMessages, message]
+            }
+          };
+        });
+      },
       
       setMessages: (channelId, messages) => set((state) => ({
         messages: { ...state.messages, [channelId]: messages }

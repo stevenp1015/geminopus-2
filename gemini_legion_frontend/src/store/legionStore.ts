@@ -3,6 +3,7 @@ import { devtools } from 'zustand/middleware'
 import { io, Socket } from 'socket.io-client'
 import toast from 'react-hot-toast'
 import { minionApi, channelApi, WS_BASE_URL, API_BASE_URL } from '../services/api'
+import { useChatStore } from './chatStore' // Direct import
 import type {
     Minion as MinionType,
     Channel as ChannelType,
@@ -212,10 +213,25 @@ export const useLegionStore = create<LegionState>()(
         
         // Message events (forward to chat store)
         ws.on('message_sent', (data: any) => {
-          // Import chat store dynamically to avoid circular dependency
-          import('./chatStore').then(({ useChatStore }) => {
-            useChatStore.getState().handleNewMessage(data.channel_id, data.message)
-          })
+          console.log('[LegionStore] WebSocket event "message_sent" RECEIVED. Raw Data:', JSON.parse(JSON.stringify(data)));
+          if (!data || !data.channel_id || !data.message) {
+            console.error('[LegionStore] "message_sent" event received with invalid/missing data structure:', data);
+            toast.error('Received corrupted message event from server.');
+            return;
+          }
+          try {
+            const chatStoreState = useChatStore.getState();
+            if (chatStoreState && typeof chatStoreState.handleNewMessage === 'function') {
+              console.log('[LegionStore] Calling chatStore.handleNewMessage with channelId:', data.channel_id, 'and message:', JSON.parse(JSON.stringify(data.message)));
+              chatStoreState.handleNewMessage(data.channel_id, data.message);
+            } else {
+              console.error('[LegionStore] chatStore.handleNewMessage is not available or not a function. Current chatStore state:', chatStoreState);
+              toast.error('Internal error processing new message (chat store issue).');
+            }
+          } catch (e) {
+            console.error('[LegionStore] Error calling chatStore.handleNewMessage:', e);
+            toast.error('Failed to process new message internally.');
+          }
         })
         
         // Channel events (forward to chat store)
