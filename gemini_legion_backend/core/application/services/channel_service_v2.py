@@ -207,7 +207,7 @@ class ChannelServiceV2:
             raise ValueError(f"Channel {channel_id} not found")
         
         # Check membership for non-public channels
-        if channel.channel_type != ChannelType.PUBLIC:
+        if channel.channel_type != ChannelType.PUBLIC and sender_id != "system": # Allow "system" to bypass
             if not any(m.member_id == sender_id for m in channel.members):
                 raise ValueError(f"{sender_id} is not a member of {channel_id}")
         

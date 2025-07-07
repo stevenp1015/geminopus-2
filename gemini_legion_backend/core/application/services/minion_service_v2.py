@@ -16,8 +16,8 @@ from google.adk import Runner
 from google.genai.types import Content, Part
 from google.genai import types as genai_types
 
-from ...domain import Minion, MinionPersona, EmotionalState, MoodVector, WorkingMemory
-from ...infrastructure.persistence.repositories import MinionRepository
+from ...domain import Minion, MinionPersona, EmotionalState, MoodVector, WorkingMemory, Channel # Added Channel
+from ...infrastructure.persistence.repositories import MinionRepository, ChannelRepository # Added ChannelRepository
 from ...infrastructure.adk.events import get_event_bus, EventType
 from ...infrastructure.adk.agents.minion_agent_v2 import ADKMinionAgent
 
@@ -38,6 +38,7 @@ class MinionServiceV2:
     def __init__(
         self,
         minion_repository: MinionRepository,
+        channel_repository: ChannelRepository, # Added channel_repository
         api_key: Optional[str] = None,
         session_service: Optional[Any] = None  # ADK session service
     ):
@@ -46,11 +47,13 @@ class MinionServiceV2:
         
         Args:
             minion_repository: Repository for minion persistence
+            channel_repository: Repository for channel data (to check membership)
             api_key: Optional Gemini API key
             session_service: ADK session service for Runner
         """
         self.minion_repo = minion_repository
-        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        self.channel_repo = channel_repository # Store channel_repository
+        self.api_key = api_key or os.getenv("GOOGLE_API_KEY") # This will be populated by settings via dependencies
         self.session_service = session_service
         self.event_bus = get_event_bus()
         
@@ -498,11 +501,24 @@ class MinionServiceV2:
             for minion_id, agent in self.agents.items():
                 minion = self.minions.get(minion_id)
                 if not minion:
+                    logger.debug(f"_handle_channel_message: Minion object for ID {minion_id} not found in self.minions. Skipping.")
+                    continue
+
+                # Fetch channel details to check membership
+                # This assumes channel_repo.get_by_id returns a Channel domain object or None
+                channel_obj: Optional[Channel] = await self.channel_repo.get_by_id(channel_id)
+
+                if not channel_obj:
+                    logger.warning(f"_handle_channel_message: Channel {channel_id} not found in repository. Cannot check membership for minion {minion_id}.")
+                    continue # Or handle as error if channel should always exist
+
+                is_member = any(member.member_id == minion_id for member in channel_obj.members)
+                
+                if not is_member:
+                    logger.debug(f"Minion {minion_id} ({minion.persona.name}) is NOT a member of channel {channel_id} ({channel_obj.name}). Skipping response.")
                     continue
                 
-                # Check if minion is in this channel (simplified check)
-                # In real implementation, would check channel membership
-                
+                logger.info(f"Minion {minion_id} ({minion.persona.name}) IS a member of channel {channel_id}. Proceeding to generate response.")
                 # Generate response using Runner
                 try:
                     runner = self.runners.get(minion_id)

@@ -66,10 +66,20 @@ class ServiceContainerV2:
             message_repository=self.message_repo
         )
         
+        # Import settings at the top of the file or ensure it's available in this scope
+        # Assuming settings are imported from gemini_legion_backend.config
+        from gemini_legion_backend.config import settings
+
+        # Import settings at the top of the file or ensure it's available in this scope
+        # Assuming settings are imported from gemini_legion_backend.config
+        from gemini_legion_backend.config import settings
+        from .infrastructure.persistence.repositories import ChannelRepository # For type hint
+
         self.minion_service = MinionServiceV2(
             minion_repository=self.minion_repo,
-            api_key=os.getenv("GOOGLE_API_KEY"),
-            session_service=self.session_service  # Pass session service for Runner usage
+            channel_repository=self.channel_repo, # Pass channel_repo
+            api_key=settings.GOOGLE_API_KEY,
+            session_service=self.session_service
         )
 
         # Add TaskServiceV2 instantiation

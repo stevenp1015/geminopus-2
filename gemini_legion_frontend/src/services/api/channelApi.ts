@@ -92,18 +92,22 @@ export const channelApi = {
   /**
    * Send a message to a channel
    */
-  async sendMessage(channelId: string, data: { // channelId from path is still used for URL construction
-    sender: string       // To match backend Pydantic model: SendMessageRequest
-    channel_id: string // To match backend Pydantic model (even if redundant with path)
+  async sendMessage(channelId: string, data: {
+    sender_id: string  // Corrected to sender_id
     content: string
-    message_type?: 'text' | 'system' | 'event' // Keep for potential future use, not in current backend model
+    // channel_id is in URL, message_type not used by backend schema currently
   }): Promise<Message> {
     const url = `${API_BASE_URL}${API_ENDPOINTS.channels.sendMessage(channelId)}`;
-    console.log('[channelApi] sendMessage: Attempting to POST to URL:', url);
+    // Construct the payload ensuring only fields expected by MessageCreateSchema are sent
+    const payload = {
+      sender_id: data.sender_id,
+      content: data.content
+    };
+    console.log('[channelApi] sendMessage: Attempting to POST to URL:', url, 'Payload:', payload);
     const response = await fetch(url, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload), // Send the corrected payload
     })
     return handleAPIResponse<Message>(response)
   },
