@@ -66,19 +66,14 @@ class ServiceContainerV2:
             message_repository=self.message_repo
         )
         
-        # Import settings at the top of the file or ensure it's available in this scope
-        # Assuming settings are imported from gemini_legion_backend.config
-        from gemini_legion_backend.config import settings
-
-        # Import settings at the top of the file or ensure it's available in this scope
-        # Assuming settings are imported from gemini_legion_backend.config
-        from gemini_legion_backend.config import settings
-        from .infrastructure.persistence.repositories import ChannelRepository # For type hint
+        # Correctly import the 'settings' instance from the 'settings' module
+        from gemini_legion_backend.config.settings import settings # lowercase 's'
+        from .infrastructure.persistence.repositories import ChannelRepository # For type hint (this is fine)
 
         self.minion_service = MinionServiceV2(
             minion_repository=self.minion_repo,
             channel_repository=self.channel_repo, # Pass channel_repo
-            api_key=settings.GOOGLE_API_KEY,
+            api_key=settings.GOOGLE_API_KEY, # Now 'settings' refers to the instance
             session_service=self.session_service
         )
 
