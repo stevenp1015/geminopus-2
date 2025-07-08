@@ -96,14 +96,18 @@ export const channelApi = {
     sender_id: string  // This is what chatStore provides
     content: string
   }): Promise<Message> {
+    // Step 1 log is here:
+    console.log('[channelApi] sendMessage: Received data argument:', JSON.stringify(data));
     const url = `${API_BASE_URL}${API_ENDPOINTS.channels.sendMessage(channelId)}`;
-    // Construct the payload to match SendMessageRequest schema on backend
+
+    // Step 2: Explicitly construct payload ensuring correct key mapping
     const payload = {
-      sender: data.sender_id, // Backend schema expects 'sender'
-      channel_id: channelId,    // Backend schema expects 'channel_id' in body
+      sender: data.sender_id, // Ensure this uses data.sender_id from the destructured 'data' param
+      channel_id: channelId,  // Pass channelId from the function parameter
       content: data.content
     };
-    console.log('[channelApi] sendMessage: Attempting to POST to URL:', url, 'Payload:', payload);
+
+    console.log('[channelApi] sendMessage: Constructed payload for backend:', JSON.stringify(payload)); // Log constructed payload
     const response = await fetch(url, {
       method: 'POST',
       headers: getHeaders(),
