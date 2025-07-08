@@ -94,44 +94,45 @@ class Settings(BaseSettings):
     enable_memory_consolidation: bool = Field(default=False, env="ENABLE_MEMORY_CONSOLIDATION")
 
     @model_validator(mode='after')
-    def set_derived_paths(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        base_dir_val = values.get('base_dir')
-        data_dir_val = values.get('data_dir')
+    def set_derived_paths(self) -> 'Settings': # Changed signature to use self
+        # Access fields directly from the model instance (self)
+        base_dir_val = self.base_dir
+        data_dir_val = self.data_dir
 
-        # data_dir should already be a Path due to Field(default=...)
-        # logs_dir should also already be a Path
-
-        if values.get('diary_storage_path') is None:
+        if self.diary_storage_path is None:
             if isinstance(data_dir_val, Path):
-                values['diary_storage_path'] = data_dir_val / "diaries"
-            elif isinstance(base_dir_val, Path): # Fallback if data_dir wasn't resolved to Path yet
-                values['diary_storage_path'] = base_dir_val / "data" / "diaries"
-            else: # Should absolutely not happen if base_dir is correctly typed and defaulted
-                # This path implies _BASE_DIR was not a Path, which is a coding error.
-                # However, to satisfy Pydantic if it somehow gets here with base_dir_val as None:
-                # Let's make a default relative to current file if all else fails, though this is bad practice.
-                # This should ideally raise a more specific configuration error.
-                values['diary_storage_path'] = Path(__file__).resolve().parent.parent / "data" / "diaries_fallback"
+                self.diary_storage_path = data_dir_val / "diaries"
+            elif isinstance(base_dir_val, Path):
+                # This case implies data_dir_val might not have been a Path initially,
+                # which shouldn't happen if Field(default=...) for data_dir is correct.
+                # However, providing a fallback based on base_dir.
+                self.diary_storage_path = base_dir_val / "data" / "diaries"
+            else:
+                # Failsafe if base_dir itself isn't a Path (should be caught by its own type validation)
+                # This indicates a more fundamental issue with _BASE_DIR or base_dir assignment.
+                # For robustness, create a path relative to this file, though it's not ideal.
+                self.diary_storage_path = Path(__file__).resolve().parent.parent / "data" / "diaries_fallback_validator"
 
+        # Ensure all path fields are Path objects after potential modifications or if loaded as strings from .env
+        # data_dir and logs_dir should already be Path objects due to their Field(default=...)
+        # This is an extra check or conversion if they were somehow overridden by non-Path values (e.g. from .env as str)
+        if self.data_dir is not None and not isinstance(self.data_dir, Path):
+            self.data_dir = Path(self.data_dir)
+        if self.logs_dir is not None and not isinstance(self.logs_dir, Path):
+            self.logs_dir = Path(self.logs_dir)
+        if self.diary_storage_path is not None and not isinstance(self.diary_storage_path, Path):
+            self.diary_storage_path = Path(self.diary_storage_path)
 
-        # Ensure all are Path objects (though Field defaults should handle data_dir and logs_dir)
-        # This is more of a safeguard or for fields that might come from .env as strings
-        for field_name in ['data_dir', 'logs_dir', 'diary_storage_path']:
-            if field_name in values and values[field_name] is not None:
-                if not isinstance(values[field_name], Path):
-                    values[field_name] = Path(values[field_name])
-            # Ensure they are set if somehow missed and base_dir_val is available
-            elif base_dir_val and (values.get(field_name) is None):
-                 if field_name == 'data_dir': values[field_name] = base_dir_val / 'data'
-                 if field_name == 'logs_dir': values[field_name] = base_dir_val / 'logs'
-                 # diary_storage_path is handled above more specifically
+        # If any path is still None after the above (e.g., if .env set them to empty string, which Pydantic might convert to None for Optional types)
+        # re-default them based on base_dir. This ensures they are always Path objects.
+        if self.data_dir is None: # Should be covered by Field(default=...)
+             self.data_dir = self.base_dir / 'data'
+        if self.logs_dir is None: # Should be covered by Field(default=...)
+             self.logs_dir = self.base_dir / 'logs'
+        if self.diary_storage_path is None: # If all prior logic failed to set it
+             self.diary_storage_path = self.data_dir / "diaries" # Relies on data_dir being a Path now
 
-        # Final check for diary_storage_path if it's still None
-        if values.get('diary_storage_path') is None and isinstance(values.get('data_dir'), Path):
-             values['diary_storage_path'] = values['data_dir'] / "diaries"
-
-
-        return values
+        return self # Return the modified model instance
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
