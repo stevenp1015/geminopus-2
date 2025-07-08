@@ -200,12 +200,9 @@ export const useChatStore = create<ChatState>()(
       sendMessage: async (channelId: string, senderId: string, content: string) => {
         console.log(`[ChatStore] sendMessage CALLED. Channel ID: ${channelId}, Sender ID: ${senderId}, Content: "${content}"`);
         try {
-          // Send via channel endpoint
-          await channelApi.sendMessage(channelId, { // Removed 'const message ='
-            sender: senderId,      // Changed from sender_id
-            channel_id: channelId, // Added channel_id
-            content
-          })
+          const apiPayload = { sender_id: senderId, content };
+          console.log('[ChatStore] Calling channelApi.sendMessage with payload:', JSON.stringify(apiPayload));
+          await channelApi.sendMessage(channelId, apiPayload);
           
           // Don't add optimistically - let WebSocket event handle it to avoid duplicates
         } catch (error) {
