@@ -89,37 +89,52 @@ export const useChatStore = create<ChatState>()(
       
       selectChannel: (channelId) => {
         const oldSelectedChannelId = get().selectedChannelId;
+        // if (oldSelectedChannelId === channelId && channelId !== null) { // Avoid no-op if same channel is re-selected, unless it's to clear from null
+        //   console.log(`[ChatStore] selectChannel: Channel ${channelId} is already selected.`);
+        //   return;
+        // }
+
         console.log(`[ChatStore] selectChannel called. Old ID: ${oldSelectedChannelId}, New ID: ${channelId}`);
         
-        // Get WebSocket instance from legionStore
         const websocket = useLegionStore.getState().websocket;
         
-        // Unsubscribe from old channel if exists
-        if (oldSelectedChannelId && websocket) {
+        if (oldSelectedChannelId && websocket && oldSelectedChannelId !== channelId) {
           console.log(`[ChatStore] Unsubscribing from old channel: ${oldSelectedChannelId}`);
           websocket.emit('unsubscribe_channel', { channel_id: oldSelectedChannelId });
         }
         
+        set({ selectedChannelId: channelId, loadingMessages: !!channelId });
+
         if (channelId) {
-          const selected = get().channels[channelId];
-          console.log(`[ChatStore] selectChannel - Details of selected channel (${channelId}):`, JSON.parse(JSON.stringify(selected)));
-          if (selected) {
-            console.log(`[ChatStore] selectChannel - Members of selected channel (${channelId}):`, JSON.parse(JSON.stringify(selected.members)));
-          } else {
-            console.warn(`[ChatStore] selectChannel - Channel with ID ${channelId} not found in store.`);
-          }
+          // Set messages for the new channel to empty array if not already cached
+          // This ensures UI clears previous channel's messages immediately.
+          // fetchMessages will then populate it.
+          set(state => {
+            if (!state.messages[channelId!] || state.messages[channelId!].length === 0) { // Only if not cached or empty
+              // Check if messages for this channel are already being fetched or exist
+              // This condition might be too simple, could lead to clearing loaded messages if fetchMessages is slow
+              // For now, let's clear if not present, fetchMessages will overwrite
+              if (!state.messages[channelId!]) {
+                 console.log(`[ChatStore] selectChannel: Initializing empty message array for new channel ${channelId}`);
+                 return { messages: { ...state.messages, [channelId!]: [] } };
+              }
+            }
+            return {};
+          });
+
+          get().fetchMessages(channelId);
           
-          // Subscribe to new channel via WebSocket
-          if (websocket) {
+          if (websocket && oldSelectedChannelId !== channelId) { // Only subscribe if different channel
             console.log(`[ChatStore] Subscribing to new channel: ${channelId}`);
             websocket.emit('subscribe_channel', { channel_id: channelId });
-          } else {
+          } else if (!websocket) {
             console.warn('[ChatStore] WebSocket not available for channel subscription');
           }
+        } else {
+           set({ loadingMessages: false }); // No channel selected, no messages to load
         }
-        
-        set({ selectedChannelId: channelId });
-        console.log(`[ChatStore] selectChannel: selectedChannelId has been set to: ${get().selectedChannelId}`);
+        // selectedChannelId is set above with loadingMessages
+        // console.log(`[ChatStore] selectChannel: selectedChannelId has been set to: ${get().selectedChannelId}`);
       },
       
       // Message actions
@@ -188,8 +203,8 @@ export const useChatStore = create<ChatState>()(
           get().addChannel(channel)
           toast.success(`Channel #${name} created!`)
           
-          // Auto-select the new channel
-          set({ selectedChannelId: channel.id }) // Changed from channel_id
+          // Auto-select the new channel by calling the full selectChannel logic
+          get().selectChannel(channel.id);
         } catch (error) {
           console.error('Failed to create channel:', error)
           toast.error('Failed to create channel')

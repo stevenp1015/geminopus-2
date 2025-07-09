@@ -213,23 +213,25 @@ export const useLegionStore = create<LegionState>()(
         
         // Message events (forward to chat store)
         ws.on('message_sent', (data: any) => {
-          console.log('[LegionStore] WebSocket event "message_sent" RECEIVED. Raw Data:', JSON.parse(JSON.stringify(data)));
+          const handlerInvocationId = `handler_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+          console.log(`[LegionStore] WebSocket event "message_sent" RECEIVED. Handler Invocation ID: ${handlerInvocationId}. Raw Data:`, JSON.parse(JSON.stringify(data)));
+
           if (!data || !data.channel_id || !data.message) {
-            console.error('[LegionStore] "message_sent" event received with invalid/missing data structure:', data);
+            console.error(`[LegionStore] Handler ${handlerInvocationId}: "message_sent" event received with invalid/missing data structure:`, data);
             toast.error('Received corrupted message event from server.');
             return;
           }
           try {
             const chatStoreState = useChatStore.getState();
             if (chatStoreState && typeof chatStoreState.handleNewMessage === 'function') {
-              console.log('[LegionStore] Calling chatStore.handleNewMessage with channelId:', data.channel_id, 'and message:', JSON.parse(JSON.stringify(data.message)));
+              console.log(`[LegionStore] Handler ${handlerInvocationId}: Calling chatStore.handleNewMessage with channelId:`, data.channel_id, 'and message:', JSON.parse(JSON.stringify(data.message)));
               chatStoreState.handleNewMessage(data.channel_id, data.message);
             } else {
-              console.error('[LegionStore] chatStore.handleNewMessage is not available or not a function. Current chatStore state:', chatStoreState);
+              console.error(`[LegionStore] Handler ${handlerInvocationId}: chatStore.handleNewMessage is not available or not a function. Current chatStore state:`, chatStoreState);
               toast.error('Internal error processing new message (chat store issue).');
             }
           } catch (e) {
-            console.error('[LegionStore] Error calling chatStore.handleNewMessage:', e);
+            console.error(`[LegionStore] Handler ${handlerInvocationId}: Error calling chatStore.handleNewMessage:`, e);
             toast.error('Failed to process new message internally.');
           }
         })
